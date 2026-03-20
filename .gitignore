@@ -1,0 +1,16 @@
+
+# Python
+__pycache__/
+# Logs
+*.log
+# json db
+json_db/
+# Node / frontend caches
+node_modules/
+
+# Local editor / workspace noise
+.vscode/
+
+.env
+*.ini
+*.conf
