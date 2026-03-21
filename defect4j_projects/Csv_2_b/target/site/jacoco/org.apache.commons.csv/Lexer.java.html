@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Lexer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Commons CSV</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.csv</a> &gt; <span class="el_source">Lexer.java</span></div><h1>Lexer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.csv;
+
+import static org.apache.commons.csv.Constants.BACKSPACE;
+import static org.apache.commons.csv.Constants.CR;
+import static org.apache.commons.csv.Constants.END_OF_STREAM;
+import static org.apache.commons.csv.Constants.FF;
+import static org.apache.commons.csv.Constants.LF;
+import static org.apache.commons.csv.Constants.TAB;
+import static org.apache.commons.csv.Constants.UNDEFINED;
+
+import java.io.IOException;
+
+/**
+ * Abstract lexer class; contains common utility routines shared by lexers
+ *
+ * @version $Id$
+ */
+abstract class Lexer {
+
+    /**
+     * Constant char to use for disabling comments, escapes and encapsulation. The value -2 is used because it
+     * won't be confused with an EOF signal (-1), and because the Unicode value {@code FFFE} would be encoded as two
+     * chars (using surrogates) and thus there should never be a collision with a real text char.
+     */
+    private static final char DISABLED = '\ufffe';
+
+    private final char delimiter;
+    private final char escape;
+    private final char quoteChar;
+    private final char commmentStart;
+
+    final boolean ignoreSurroundingSpaces;
+    final boolean ignoreEmptyLines;
+
+    final CSVFormat format;
+
+    /** The input stream */
+    final ExtendedBufferedReader in;
+
+<span class="nc" id="L57">    Lexer(final CSVFormat format, final ExtendedBufferedReader in) {</span>
+<span class="nc" id="L58">        this.format = format;</span>
+<span class="nc" id="L59">        this.in = in;</span>
+<span class="nc" id="L60">        this.delimiter = format.getDelimiter();</span>
+<span class="nc" id="L61">        this.escape = mapNullToDisabled(format.getEscape());</span>
+<span class="nc" id="L62">        this.quoteChar = mapNullToDisabled(format.getQuoteChar());</span>
+<span class="nc" id="L63">        this.commmentStart = mapNullToDisabled(format.getCommentStart());</span>
+<span class="nc" id="L64">        this.ignoreSurroundingSpaces = format.getIgnoreSurroundingSpaces();</span>
+<span class="nc" id="L65">        this.ignoreEmptyLines = format.getIgnoreEmptyLines();</span>
+<span class="nc" id="L66">    }</span>
+
+    private final char mapNullToDisabled(final Character c) {
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        return c == null ? DISABLED : c.charValue();</span>
+    }
+
+    long getLineNumber() {
+<span class="nc" id="L73">        return in.getLineNumber();</span>
+    }
+
+    // TODO escape handling needs more work
+    int readEscape() throws IOException {
+        // assume c is the escape char (normally a backslash)
+<span class="nc" id="L79">        final int c = in.read();</span>
+<span class="nc bnc" id="L80" title="All 7 branches missed.">        switch (c) {</span>
+        case 'r':
+<span class="nc" id="L82">            return CR;</span>
+        case 'n':
+<span class="nc" id="L84">            return LF;</span>
+        case 't':
+<span class="nc" id="L86">            return TAB;</span>
+        case 'b':
+<span class="nc" id="L88">            return BACKSPACE;</span>
+        case 'f':
+<span class="nc" id="L90">            return FF;</span>
+        case END_OF_STREAM:
+<span class="nc" id="L92">            throw new IOException(&quot;EOF whilst processing escape sequence&quot;);</span>
+        default:
+<span class="nc" id="L94">            return c;</span>
+        }
+    }
+
+    void trimTrailingSpaces(final StringBuilder buffer) {
+<span class="nc" id="L99">        int length = buffer.length();</span>
+<span class="nc bnc" id="L100" title="All 4 branches missed.">        while (length &gt; 0 &amp;&amp; Character.isWhitespace(buffer.charAt(length - 1))) {</span>
+<span class="nc" id="L101">            length = length - 1;</span>
+        }
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (length != buffer.length()) {</span>
+<span class="nc" id="L104">            buffer.setLength(length);</span>
+        }
+<span class="nc" id="L106">    }</span>
+
+    /**
+     * Greedily accepts \n, \r and \r\n This checker consumes silently the second control-character...
+     *
+     * @return true if the given or next character is a line-terminator
+     */
+    boolean readEndOfLine(int c) throws IOException {
+        // check if we have \r\n...
+<span class="nc bnc" id="L115" title="All 4 branches missed.">        if (c == CR &amp;&amp; in.lookAhead() == LF) {</span>
+            // note: does not change c outside of this method!
+<span class="nc" id="L117">            c = in.read();</span>
+        }
+<span class="nc bnc" id="L119" title="All 4 branches missed.">        return c == LF || c == CR;</span>
+    }
+
+    abstract Token nextToken(Token reusableToken) throws IOException;
+
+    /**
+     * @return true if the given char is a whitespace character
+     */
+    boolean isWhitespace(final int c) {
+<span class="nc bnc" id="L128" title="All 4 branches missed.">        return c != format.getDelimiter() &amp;&amp; Character.isWhitespace((char) c);</span>
+    }
+
+    /**
+     * Checks if the current character represents the start of a line: a CR, LF or is at the start of the file.
+     *
+     * @param c
+     * @return true if the character is at the start of a line.
+     */
+    boolean isStartOfLine(final int c) {
+<span class="nc bnc" id="L138" title="All 6 branches missed.">        return c == LF || c == CR || c == UNDEFINED;</span>
+    }
+
+    /**
+     * @return true if the given character indicates end of file
+     */
+    boolean isEndOfFile(final int c) {
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        return c == END_OF_STREAM;</span>
+    }
+
+    boolean isDelimiter(final int c) {
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        return c == delimiter;</span>
+    }
+
+    boolean isEscape(final int c) {
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        return c == escape;</span>
+    }
+
+    boolean isQuoteChar(final int c) {
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        return c == quoteChar;</span>
+    }
+
+    boolean isCommentStart(final int c) {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        return c == commmentStart;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

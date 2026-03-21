@@ -5,7 +5,10 @@ from json import JSONDecodeError
 from typing import Optional, Dict
 
 from pymongo.collection import Collection
-
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from generator.open_generator import OpenGenerator
 from procedures.basic_procedure import BasicProcedure
 

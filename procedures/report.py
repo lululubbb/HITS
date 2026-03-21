@@ -6,7 +6,10 @@ import traceback
 from typing import Optional, Dict
 
 from pymongo.collection import Collection
-
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from utils import test_runner
 from utils.report import jacoco_analysis
 

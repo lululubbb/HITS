@@ -1,6 +1,9 @@
 import javalang
 import re
-
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from utils.code_editor import add_import
 
 

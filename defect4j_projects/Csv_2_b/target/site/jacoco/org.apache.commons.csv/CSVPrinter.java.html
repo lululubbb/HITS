@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CSVPrinter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Commons CSV</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.csv</a> &gt; <span class="el_source">CSVPrinter.java</span></div><h1>CSVPrinter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.csv;
+
+import static org.apache.commons.csv.Constants.COMMENT;
+import static org.apache.commons.csv.Constants.CR;
+import static org.apache.commons.csv.Constants.EMPTY;
+import static org.apache.commons.csv.Constants.LF;
+import static org.apache.commons.csv.Constants.SP;
+
+import java.io.Closeable;
+import java.io.Flushable;
+import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+/**
+ * Prints values in a CSV format.
+ *
+ * @version $Id$
+ */
+public class CSVPrinter implements Flushable, Closeable {
+
+    /** The place that the values get written. */
+    private final Appendable out;
+    private final CSVFormat format;
+
+    /** True if we just began a new line. */
+<span class="nc" id="L44">    private boolean newLine = true;</span>
+
+    /**
+     * Creates a printer that will print values to the given stream following the CSVFormat.
+     * &lt;p/&gt;
+     * Currently, only a pure encapsulation format or a pure escaping format is supported. Hybrid formats
+     * (encapsulation and escaping with a different character) are not supported.
+     *
+     * @param out
+     *            stream to which to print.
+     * @param format
+     *            the CSV format. If null the default format is used ({@link CSVFormat#DEFAULT})
+     * @throws IllegalArgumentException
+     *             thrown if the parameters of the format are inconsistent
+     */
+<span class="nc" id="L59">    public CSVPrinter(final Appendable out, final CSVFormat format) {</span>
+<span class="nc" id="L60">        this.out = out;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        this.format = format == null ? CSVFormat.DEFAULT : format;</span>
+<span class="nc" id="L62">    }</span>
+
+    // ======================================================
+    // printing implementation
+    // ======================================================
+
+    /**
+     * Outputs the line separator.
+     * 
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void println() throws IOException {
+<span class="nc" id="L75">        out.append(format.getRecordSeparator());</span>
+<span class="nc" id="L76">        newLine = true;</span>
+<span class="nc" id="L77">    }</span>
+
+    /**
+     * Flushes the underlying stream.
+     *
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void flush() throws IOException {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (out instanceof Flushable) {</span>
+<span class="nc" id="L87">            ((Flushable) out).flush();</span>
+        }
+<span class="nc" id="L89">    }</span>
+
+    /**
+     * Prints a single line of delimiter separated values. The values will be quoted if needed. Quotes and newLine
+     * characters will be escaped.
+     *
+     * @param values
+     *            values to output.
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void printRecord(final Object... values) throws IOException {
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        for (final Object value : values) {</span>
+<span class="nc" id="L102">            print(value);</span>
+        }
+<span class="nc" id="L104">        println();</span>
+<span class="nc" id="L105">    }</span>
+
+    /**
+     * Prints a single line of delimiter separated values. The values will be quoted if needed. Quotes and newLine
+     * characters will be escaped.
+     *
+     * @param values
+     *            values to output.
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void printRecord(final Iterable&lt;?&gt; values) throws IOException {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        for (final Object value : values) {</span>
+<span class="nc" id="L118">            print(value);</span>
+<span class="nc" id="L119">        }</span>
+<span class="nc" id="L120">        println();</span>
+<span class="nc" id="L121">    }</span>
+
+    /**
+     * Prints a comment on a new line among the delimiter separated values. Comments will always begin on a new line
+     * and occupy a least one full line. The character specified to start comments and a space will be inserted at the
+     * beginning of each new line in the comment.
+     * &lt;p/&gt;
+     * If comments are disabled in the current CSV format this method does nothing.
+     *
+     * @param comment
+     *            the comment to output
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void printComment(final String comment) throws IOException {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (!format.isCommentingEnabled()) {</span>
+<span class="nc" id="L137">            return;</span>
+        }
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (!newLine) {</span>
+<span class="nc" id="L140">            println();</span>
+        }
+<span class="nc" id="L142">        out.append(format.getCommentStart().charValue());</span>
+<span class="nc" id="L143">        out.append(SP);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        for (int i = 0; i &lt; comment.length(); i++) {</span>
+<span class="nc" id="L145">            final char c = comment.charAt(i);</span>
+<span class="nc bnc" id="L146" title="All 3 branches missed.">            switch (c) {</span>
+            case CR:
+<span class="nc bnc" id="L148" title="All 4 branches missed.">                if (i + 1 &lt; comment.length() &amp;&amp; comment.charAt(i + 1) == LF) {</span>
+<span class="nc" id="L149">                    i++;</span>
+                }
+                //$FALL-THROUGH$ break intentionally excluded.
+            case LF:
+<span class="nc" id="L153">                println();</span>
+<span class="nc" id="L154">                out.append(format.getCommentStart().charValue());</span>
+<span class="nc" id="L155">                out.append(SP);</span>
+<span class="nc" id="L156">                break;</span>
+            default:
+<span class="nc" id="L158">                out.append(c);</span>
+                break;
+            }
+        }
+<span class="nc" id="L162">        println();</span>
+<span class="nc" id="L163">    }</span>
+
+    private void print(final Object object, final CharSequence value,
+            final int offset, final int len) throws IOException {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        if (format.isQuoting()) {</span>
+<span class="nc" id="L168">            printAndQuote(object, value, offset, len);</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        } else if (format.isEscaping()) {</span>
+<span class="nc" id="L170">            printAndEscape(value, offset, len);</span>
+        } else {
+<span class="nc" id="L172">            printDelimiter();</span>
+<span class="nc" id="L173">            out.append(value, offset, offset + len);</span>
+        }
+<span class="nc" id="L175">    }</span>
+
+    void printDelimiter() throws IOException {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        if (newLine) {</span>
+<span class="nc" id="L179">            newLine = false;</span>
+        } else {
+<span class="nc" id="L181">            out.append(format.getDelimiter());</span>
+        }
+<span class="nc" id="L183">    }</span>
+
+    /*
+     * Note: must only be called if escaping is enabled, otherwise will generate NPE
+     */
+    void printAndEscape(final CharSequence value, final int offset, final int len) throws IOException {
+<span class="nc" id="L189">        int start = offset;</span>
+<span class="nc" id="L190">        int pos = offset;</span>
+<span class="nc" id="L191">        final int end = offset + len;</span>
+
+<span class="nc" id="L193">        printDelimiter();</span>
+
+<span class="nc" id="L195">        final char delim = format.getDelimiter();</span>
+<span class="nc" id="L196">        final char escape = format.getEscape().charValue();</span>
+
+<span class="nc bnc" id="L198" title="All 2 branches missed.">        while (pos &lt; end) {</span>
+<span class="nc" id="L199">            char c = value.charAt(pos);</span>
+<span class="nc bnc" id="L200" title="All 8 branches missed.">            if (c == CR || c == LF || c == delim || c == escape) {</span>
+                // write out segment up until this char
+<span class="nc bnc" id="L202" title="All 2 branches missed.">                if (pos &gt; start) {</span>
+<span class="nc" id="L203">                    out.append(value, start, pos);</span>
+                }
+<span class="nc bnc" id="L205" title="All 2 branches missed.">                if (c == LF) {</span>
+<span class="nc" id="L206">                    c = 'n';</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">                } else if (c == CR) {</span>
+<span class="nc" id="L208">                    c = 'r';</span>
+                }
+
+<span class="nc" id="L211">                out.append(escape);</span>
+<span class="nc" id="L212">                out.append(c);</span>
+
+<span class="nc" id="L214">                start = pos + 1; // start on the current char after this one</span>
+            }
+
+<span class="nc" id="L217">            pos++;</span>
+<span class="nc" id="L218">        }</span>
+
+        // write last segment
+<span class="nc bnc" id="L221" title="All 2 branches missed.">        if (pos &gt; start) {</span>
+<span class="nc" id="L222">            out.append(value, start, pos);</span>
+        }
+<span class="nc" id="L224">    }</span>
+
+    /*
+     * Note: must only be called if quoting is enabled, otherwise will generate NPE
+     */
+    void printAndQuote(final Object object, final CharSequence value,
+            final int offset, final int len) throws IOException {
+<span class="nc" id="L231">        final boolean first = newLine; // is this the first value on this line?</span>
+<span class="nc" id="L232">        boolean quote = false;</span>
+<span class="nc" id="L233">        int start = offset;</span>
+<span class="nc" id="L234">        int pos = offset;</span>
+<span class="nc" id="L235">        final int end = offset + len;</span>
+
+<span class="nc" id="L237">        printDelimiter();</span>
+
+<span class="nc" id="L239">        final char delimChar = format.getDelimiter();</span>
+<span class="nc" id="L240">        final char quoteChar = format.getQuoteChar().charValue();</span>
+
+<span class="nc" id="L242">        Quote quotePolicy = format.getQuotePolicy();</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        if (quotePolicy == null) {</span>
+<span class="nc" id="L244">            quotePolicy = Quote.MINIMAL;</span>
+        }
+<span class="nc bnc" id="L246" title="All 5 branches missed.">        switch (quotePolicy) {</span>
+        case ALL:
+<span class="nc" id="L248">            quote = true;</span>
+<span class="nc" id="L249">            break;</span>
+        case NON_NUMERIC:
+<span class="nc bnc" id="L251" title="All 2 branches missed.">            quote = !(object instanceof Number);</span>
+<span class="nc" id="L252">            break;</span>
+        case NONE:
+<span class="nc" id="L254">            throw new IllegalArgumentException(&quot;Not implemented yet&quot;);</span>
+        case MINIMAL:
+<span class="nc bnc" id="L256" title="All 2 branches missed.">            if (len &lt;= 0) {</span>
+                // always quote an empty token that is the first
+                // on the line, as it may be the only thing on the
+                // line. If it were not quoted in that case,
+                // an empty line has no tokens.
+<span class="nc bnc" id="L261" title="All 2 branches missed.">                if (first) {</span>
+<span class="nc" id="L262">                    quote = true;</span>
+                }
+            } else {
+<span class="nc" id="L265">                char c = value.charAt(pos);</span>
+
+                // Hmmm, where did this rule come from?
+<span class="nc bnc" id="L268" title="All 14 branches missed.">                if (first &amp;&amp; (c &lt; '0' || (c &gt; '9' &amp;&amp; c &lt; 'A') || (c &gt; 'Z' &amp;&amp; c &lt; 'a') || (c &gt; 'z'))) {</span>
+<span class="nc" id="L269">                    quote = true;</span>
+                    // } else if (c == ' ' || c == '\f' || c == '\t') {
+<span class="nc bnc" id="L271" title="All 2 branches missed.">                } else if (c &lt;= COMMENT) {</span>
+                    // Some other chars at the start of a value caused the parser to fail, so for now
+                    // encapsulate if we start in anything less than '#'. We are being conservative
+                    // by including the default comment char too.
+<span class="nc" id="L275">                    quote = true;</span>
+                } else {
+<span class="nc bnc" id="L277" title="All 2 branches missed.">                    while (pos &lt; end) {</span>
+<span class="nc" id="L278">                        c = value.charAt(pos);</span>
+<span class="nc bnc" id="L279" title="All 8 branches missed.">                        if (c == LF || c == CR || c == quoteChar || c == delimChar) {</span>
+<span class="nc" id="L280">                            quote = true;</span>
+<span class="nc" id="L281">                            break;</span>
+                        }
+<span class="nc" id="L283">                        pos++;</span>
+                    }
+
+<span class="nc bnc" id="L286" title="All 2 branches missed.">                    if (!quote) {</span>
+<span class="nc" id="L287">                        pos = end - 1;</span>
+<span class="nc" id="L288">                        c = value.charAt(pos);</span>
+                        // if (c == ' ' || c == '\f' || c == '\t') {
+                        // Some other chars at the end caused the parser to fail, so for now
+                        // encapsulate if we end in anything less than ' '
+<span class="nc bnc" id="L292" title="All 2 branches missed.">                        if (c &lt;= SP) {</span>
+<span class="nc" id="L293">                            quote = true;</span>
+                        }
+                    }
+                }
+            }
+
+<span class="nc bnc" id="L299" title="All 2 branches missed.">            if (!quote) {</span>
+                // no encapsulation needed - write out the original value
+<span class="nc" id="L301">                out.append(value, start, end);</span>
+<span class="nc" id="L302">                return;</span>
+            }
+            break;
+        }
+
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        if (!quote) {</span>
+            // no encapsulation needed - write out the original value
+<span class="nc" id="L309">            out.append(value, start, end);</span>
+<span class="nc" id="L310">            return;</span>
+        }
+
+        // we hit something that needed encapsulation
+<span class="nc" id="L314">        out.append(quoteChar);</span>
+
+        // Pick up where we left off: pos should be positioned on the first character that caused
+        // the need for encapsulation.
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        while (pos &lt; end) {</span>
+<span class="nc" id="L319">            final char c = value.charAt(pos);</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">            if (c == quoteChar) {</span>
+                // write out the chunk up until this point
+
+                // add 1 to the length to write out the encapsulator also
+<span class="nc" id="L324">                out.append(value, start, pos + 1);</span>
+                // put the next starting position on the encapsulator so we will
+                // write it out again with the next string (effectively doubling it)
+<span class="nc" id="L327">                start = pos;</span>
+            }
+<span class="nc" id="L329">            pos++;</span>
+<span class="nc" id="L330">        }</span>
+
+        // write the last segment
+<span class="nc" id="L333">        out.append(value, start, pos);</span>
+<span class="nc" id="L334">        out.append(quoteChar);</span>
+<span class="nc" id="L335">    }</span>
+
+    /**
+     * Prints the string as the next value on the line. The value will be escaped or encapsulated as needed.
+     *
+     * @param value
+     *            value to be output.
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void print(final Object value) throws IOException {
+        // null values are considered empty
+<span class="nc bnc" id="L347" title="All 2 branches missed.">        final String strValue = value == null ? EMPTY : value.toString();</span>
+<span class="nc" id="L348">        print(value, strValue, 0, strValue.length());</span>
+<span class="nc" id="L349">    }</span>
+
+    /**
+     * Prints all the objects in the given array.
+     *
+     * @param values
+     *            the values to print.
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void printRecords(final Object[] values) throws IOException {
+<span class="nc bnc" id="L360" title="All 2 branches missed.">        for (final Object value : values) {</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">            if (value instanceof Object[]) {</span>
+<span class="nc" id="L362">                this.printRecord((Object[]) value);</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">            } else if (value instanceof Iterable) {</span>
+<span class="nc" id="L364">                this.printRecord((Iterable&lt;?&gt;) value);</span>
+            } else {
+<span class="nc" id="L366">                this.printRecord(value);</span>
+            }
+        }
+<span class="nc" id="L369">    }</span>
+
+    /**
+     * Prints all the objects in the given collection.
+     *
+     * @param values
+     *            the values to print.
+     * @throws IOException
+     *             If an I/O error occurs
+     */
+    public void printRecords(final Iterable&lt;?&gt; values) throws IOException {
+<span class="nc bnc" id="L380" title="All 2 branches missed.">        for (final Object value : values) {</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">            if (value instanceof Object[]) {</span>
+<span class="nc" id="L382">                this.printRecord((Object[]) value);</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">            } else if (value instanceof Iterable) {</span>
+<span class="nc" id="L384">                this.printRecord((Iterable&lt;?&gt;) value);</span>
+            } else {
+<span class="nc" id="L386">                this.printRecord(value);</span>
+            }
+<span class="nc" id="L388">        }</span>
+<span class="nc" id="L389">    }</span>
+
+    /**
+     * Prints all the objects in the given JDBC result set.
+     *
+     * @param resultSet result set
+     *            the values to print.
+     * @throws IOException
+     *             If an I/O error occurs
+     * @throws SQLException if a database access error occurs
+     */
+    public void printRecords(final ResultSet resultSet) throws SQLException, IOException {
+<span class="nc" id="L401">        final int columnCount = resultSet.getMetaData().getColumnCount();</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">        while (resultSet.next()) {</span>
+<span class="nc bnc" id="L403" title="All 2 branches missed.">            for (int i = 1; i &lt;= columnCount; i++) {</span>
+<span class="nc" id="L404">                print(resultSet.getString(i));</span>
+            }
+<span class="nc" id="L406">            println();</span>
+        }
+<span class="nc" id="L408">    }</span>
+
+    public void close() throws IOException {
+<span class="nc bnc" id="L411" title="All 2 branches missed.">        if (out instanceof Closeable) {</span>
+<span class="nc" id="L412">            ((Closeable) out).close();</span>
+        }
+<span class="nc" id="L414">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

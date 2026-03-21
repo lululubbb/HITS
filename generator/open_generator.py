@@ -3,6 +3,10 @@ import json
 import logging
 from time import sleep
 from typing import Optional, List
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from utils.config import *
 import requests
 from urllib3.exceptions import SSLError, MaxRetryError

@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CSVLexer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Commons CSV</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.csv</a> &gt; <span class="el_source">CSVLexer.java</span></div><h1>CSVLexer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.csv;
+
+import static org.apache.commons.csv.Token.Type.COMMENT;
+import static org.apache.commons.csv.Token.Type.EOF;
+import static org.apache.commons.csv.Token.Type.EORECORD;
+import static org.apache.commons.csv.Token.Type.INVALID;
+import static org.apache.commons.csv.Token.Type.TOKEN;
+
+import java.io.IOException;
+
+/**
+ *
+ *
+ * @version $Id$
+ */
+final class CSVLexer extends Lexer {
+
+    /** INTERNAL API. ctor needs to be public so can be called dynamically by PerformanceTest class */
+    CSVLexer(final CSVFormat format, final ExtendedBufferedReader in) {
+<span class="nc" id="L37">        super(format, in);</span>
+<span class="nc" id="L38">    }</span>
+
+    /**
+     * Returns the next token.
+     * &lt;p/&gt;
+     * A token corresponds to a term, a record change or an end-of-file indicator.
+     *
+     * @param token
+     *            an existing Token object to reuse. The caller is responsible to initialize the Token.
+     * @return the next token found
+     * @throws java.io.IOException
+     *             on stream access error
+     */
+    @Override
+    Token nextToken(final Token token) throws IOException {
+
+        // get the last read char (required for empty line detection)
+<span class="nc" id="L55">        int lastChar = in.getLastChar();</span>
+
+        // read the next char and set eol
+<span class="nc" id="L58">        int c = in.read();</span>
+        /*
+         * Note: The following call will swallow LF if c == CR. But we don't need to know if the last char was CR or LF
+         * - they are equivalent here.
+         */
+<span class="nc" id="L63">        boolean eol = readEndOfLine(c);</span>
+
+        // empty line detection: eol AND (last char was EOL or beginning)
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (ignoreEmptyLines) {</span>
+<span class="nc bnc" id="L67" title="All 4 branches missed.">            while (eol &amp;&amp; isStartOfLine(lastChar)) {</span>
+                // go on char ahead ...
+<span class="nc" id="L69">                lastChar = c;</span>
+<span class="nc" id="L70">                c = in.read();</span>
+<span class="nc" id="L71">                eol = readEndOfLine(c);</span>
+                // reached end of file without any content (empty line at the end)
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                if (isEndOfFile(c)) {</span>
+<span class="nc" id="L74">                    token.type = EOF;</span>
+                    // don't set tkn.isReady here because no content
+<span class="nc" id="L76">                    return token;</span>
+                }
+            }
+        }
+
+        // did we reach eof during the last iteration already ? EOF
+<span class="nc bnc" id="L82" title="All 6 branches missed.">        if (isEndOfFile(lastChar) || (!isDelimiter(lastChar) &amp;&amp; isEndOfFile(c))) {</span>
+<span class="nc" id="L83">            token.type = EOF;</span>
+            // don't set tkn.isReady here because no content
+<span class="nc" id="L85">            return token;</span>
+        }
+
+<span class="nc bnc" id="L88" title="All 4 branches missed.">        if (isStartOfLine(lastChar) &amp;&amp; isCommentStart(c)) {</span>
+<span class="nc" id="L89">            final String comment = in.readLine().trim();</span>
+<span class="nc" id="L90">            token.content.append(comment);</span>
+<span class="nc" id="L91">            token.type = COMMENT;</span>
+<span class="nc" id="L92">            return token;</span>
+        }
+
+        // important: make sure a new char gets consumed in each iteration
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        while (token.type == INVALID) {</span>
+            // ignore whitespaces at beginning of a token
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            if (ignoreSurroundingSpaces) {</span>
+<span class="nc bnc" id="L99" title="All 4 branches missed.">                while (isWhitespace(c) &amp;&amp; !eol) {</span>
+<span class="nc" id="L100">                    c = in.read();</span>
+<span class="nc" id="L101">                    eol = readEndOfLine(c);</span>
+                }
+            }
+
+            // ok, start of token reached: encapsulated, or token
+<span class="nc bnc" id="L106" title="All 2 branches missed.">            if (isDelimiter(c)) {</span>
+                // empty token return TOKEN(&quot;&quot;)
+<span class="nc" id="L108">                token.type = TOKEN;</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            } else if (eol) {</span>
+                // empty token return EORECORD(&quot;&quot;)
+                // noop: tkn.content.append(&quot;&quot;);
+<span class="nc" id="L112">                token.type = EORECORD;</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            } else if (isQuoteChar(c)) {</span>
+                // consume encapsulated token
+<span class="nc" id="L115">                parseEncapsulatedToken(token);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            } else if (isEndOfFile(c)) {</span>
+                // end of file return EOF()
+                // noop: tkn.content.append(&quot;&quot;);
+<span class="nc" id="L119">                token.type = EOF;</span>
+<span class="nc" id="L120">                token.isReady = true; // there is data at EOF</span>
+            } else {
+                // next token must be a simple token
+                // add removed blanks when not ignoring whitespace chars...
+<span class="nc" id="L124">                parseSimpleToken(token, c);</span>
+            }
+        }
+<span class="nc" id="L127">        return token;</span>
+    }
+
+    /**
+     * Parses a simple token.
+     * &lt;p/&gt;
+     * Simple token are tokens which are not surrounded by encapsulators. A simple token might contain escaped
+     * delimiters (as \, or \;). The token is finished when one of the following conditions become true:
+     * &lt;ul&gt;
+     * &lt;li&gt;end of line has been reached (EORECORD)&lt;/li&gt;
+     * &lt;li&gt;end of stream has been reached (EOF)&lt;/li&gt;
+     * &lt;li&gt;an unescaped delimiter has been reached (TOKEN)&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @param tkn
+     *            the current token
+     * @param c
+     *            the current character
+     * @return the filled token
+     * @throws IOException
+     *             on stream access error
+     */
+    private Token parseSimpleToken(final Token tkn, int c) throws IOException {
+        // Faster to use while(true)+break than while(tkn.type == INVALID)
+        while (true) {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (readEndOfLine(c)) {</span>
+<span class="nc" id="L153">                tkn.type = EORECORD;</span>
+<span class="nc" id="L154">                break;</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">            } else if (isEndOfFile(c)) {</span>
+<span class="nc" id="L156">                tkn.type = EOF;</span>
+<span class="nc" id="L157">                tkn.isReady = true; // There is data at EOF</span>
+<span class="nc" id="L158">                break;</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">            } else if (isDelimiter(c)) {</span>
+<span class="nc" id="L160">                tkn.type = TOKEN;</span>
+<span class="nc" id="L161">                break;</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            } else if (isEscape(c)) {</span>
+<span class="nc" id="L163">                tkn.content.append((char) readEscape());</span>
+<span class="nc" id="L164">                c = in.read(); // continue</span>
+            } else {
+<span class="nc" id="L166">                tkn.content.append((char) c);</span>
+<span class="nc" id="L167">                c = in.read(); // continue</span>
+            }
+        }
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (ignoreSurroundingSpaces) {</span>
+<span class="nc" id="L172">            trimTrailingSpaces(tkn.content);</span>
+        }
+
+<span class="nc" id="L175">        return tkn;</span>
+    }
+
+    /**
+     * Parses an encapsulated token.
+     * &lt;p/&gt;
+     * Encapsulated tokens are surrounded by the given encapsulating-string. The encapsulator itself might be included
+     * in the token using a doubling syntax (as &quot;&quot;, '') or using escaping (as in \&quot;, \'). Whitespaces before and after
+     * an encapsulated token are ignored. The token is finished when one of the following conditions become true:
+     * &lt;ul&gt;
+     * &lt;li&gt;an unescaped encapsulator has been reached, and is followed by optional whitespace then:&lt;/li&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;delimiter (TOKEN)&lt;/li&gt;
+     * &lt;li&gt;end of line (EORECORD)&lt;/li&gt;
+     * &lt;/ul&gt;
+     * &lt;li&gt;end of stream has been reached (EOF)&lt;/li&gt; &lt;/ul&gt;
+     *
+     * @param tkn
+     *            the current token
+     * @return a valid token object
+     * @throws IOException
+     *             on invalid state: EOF before closing encapsulator or invalid character before delimiter or EOL
+     */
+    private Token parseEncapsulatedToken(final Token tkn) throws IOException {
+        // save current line number in case needed for IOE
+<span class="nc" id="L200">        final long startLineNumber = getLineNumber();</span>
+        int c;
+        while (true) {
+<span class="nc" id="L203">            c = in.read();</span>
+
+<span class="nc bnc" id="L205" title="All 2 branches missed.">            if (isEscape(c)) {</span>
+<span class="nc" id="L206">                tkn.content.append((char) readEscape());</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            } else if (isQuoteChar(c)) {</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">                if (isQuoteChar(in.lookAhead())) {</span>
+                    // double or escaped encapsulator -&gt; add single encapsulator to token
+<span class="nc" id="L210">                    c = in.read();</span>
+<span class="nc" id="L211">                    tkn.content.append((char) c);</span>
+                } else {
+                    // token finish mark (encapsulator) reached: ignore whitespace till delimiter
+                    while (true) {
+<span class="nc" id="L215">                        c = in.read();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">                        if (isDelimiter(c)) {</span>
+<span class="nc" id="L217">                            tkn.type = TOKEN;</span>
+<span class="nc" id="L218">                            return tkn;</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">                        } else if (isEndOfFile(c)) {</span>
+<span class="nc" id="L220">                            tkn.type = EOF;</span>
+<span class="nc" id="L221">                            tkn.isReady = true; // There is data at EOF</span>
+<span class="nc" id="L222">                            return tkn;</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">                        } else if (readEndOfLine(c)) {</span>
+<span class="nc" id="L224">                            tkn.type = EORECORD;</span>
+<span class="nc" id="L225">                            return tkn;</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">                        } else if (!isWhitespace(c)) {</span>
+                            // error invalid char between token and next delimiter
+<span class="nc" id="L228">                            throw new IOException(&quot;(line &quot; + getLineNumber() +</span>
+                                    &quot;) invalid char between encapsulated token and delimiter&quot;);
+                        }
+                    }
+                }
+<span class="nc bnc" id="L233" title="All 2 branches missed.">            } else if (isEndOfFile(c)) {</span>
+                // error condition (end of file before end of token)
+<span class="nc" id="L235">                throw new IOException(&quot;(startline &quot; + startLineNumber +</span>
+                        &quot;) EOF reached before encapsulated token finished&quot;);
+            } else {
+                // consume character
+<span class="nc" id="L239">                tkn.content.append((char) c);</span>
+            }
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

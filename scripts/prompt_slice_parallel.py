@@ -4,9 +4,12 @@ import json
 from concurrent.futures import Future
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from generator.openlimit import ChatRateLimiter
 from tqdm import tqdm
-
 from procedures import get_slices
 from utils.config import *
 from generator import open_generator

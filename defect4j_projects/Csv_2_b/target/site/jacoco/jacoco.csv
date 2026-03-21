@@ -1,0 +1,14 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Commons CSV,org.apache.commons.csv,Constants,7,0,0,0,2,0,2,0,2,0
+Commons CSV,org.apache.commons.csv,ExtendedBufferedReader,142,0,24,0,35,0,19,0,7,0
+Commons CSV,org.apache.commons.csv,CSVRecord,67,51,8,8,12,9,13,8,9,4
+Commons CSV,org.apache.commons.csv,Token,31,0,0,0,8,0,3,0,3,0
+Commons CSV,org.apache.commons.csv,CSVParser,245,0,28,0,56,0,26,0,10,0
+Commons CSV,org.apache.commons.csv,CSVLexer,314,0,60,0,79,0,34,0,4,0
+Commons CSV,org.apache.commons.csv,Lexer,185,0,43,0,37,0,37,0,13,0
+Commons CSV,org.apache.commons.csv,Quote,44,0,0,0,5,0,1,0,1,0
+Commons CSV,org.apache.commons.csv,Token.Type,54,0,0,0,6,0,1,0,1,0
+Commons CSV,org.apache.commons.csv,CSVFormat.CSVFormatBuilder,290,0,34,0,63,0,36,0,19,0
+Commons CSV,org.apache.commons.csv,CSVFormat,508,0,82,0,123,0,66,0,25,0
+Commons CSV,org.apache.commons.csv,CSVParser.new Iterator() {...},54,0,8,0,15,0,9,0,5,0
+Commons CSV,org.apache.commons.csv,CSVPrinter,599,0,116,0,152,0,75,0,15,0

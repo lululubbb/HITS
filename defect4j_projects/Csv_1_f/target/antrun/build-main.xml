@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="maven-antrun-" default="main"  >
+<target name="main">
+  <copy todir="/home/chenlu/ChatUniTest_GPT3.5/defect4j_projects/Csv_1_f/target/apidocs/META-INF">
+    <fileset dir="/home/chenlu/ChatUniTest_GPT3.5/defect4j_projects/Csv_1_f">
+      <include name="LICENSE.txt"/>
+      <include name="NOTICE.txt"/>
+    </fileset>
+  </copy>
+</target>
+</project>

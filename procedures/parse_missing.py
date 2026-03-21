@@ -4,7 +4,10 @@ import os.path
 import re
 
 from pymongo.collection import Collection
-
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from utils.load_code_graph import load_code_graph, find_control_dependencies
 from utils.report import jacoco_missing_lines
 

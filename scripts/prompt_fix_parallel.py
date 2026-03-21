@@ -2,6 +2,11 @@ import argparse
 import glob
 import json
 import shutil
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 将项目根目录加入 Python 路径
+sys.path.append(PROJECT_ROOT)
 from typing import Dict
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
@@ -36,9 +41,7 @@ def main():
     print(f"Playground dir: {os.path.join(playground_dir, project_name)}")
     print(f"fixing? {args.fixing}")
     print(f"wo_slice? {args.wo_slice}")
-    mark = input("\nContinue? (y to continue)")
-    if mark != 'y':
-        return
+    print("Continuing automatically (no manual confirmation needed)...")
 
     if args.wo_slice:
         prompt_root = 'prompts/no_slice'

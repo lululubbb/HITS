@@ -1,6 +1,11 @@
 import argparse
 import glob
 import json
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 将项目根目录加入 Python 路径
+sys.path.append(PROJECT_ROOT)
 from json import JSONDecodeError
 
 # from pymongo import MongoClient
@@ -34,9 +39,7 @@ def main():
     print(f"Playground dir: {os.path.join(playground_dir, project_name)}")
     print(f"is_fixing: {args.fixing}")
     print(f"wo_slice: {args.wo_slice}")
-    item = input("\nConfirm to continue? (press y to continue: ")
-    if item != 'y':
-        print(f"Receive command {item} not y. Stop.")
+    print("Continuing automatically (no manual confirmation needed)...")
 
     # load meta learning
     with open(os.path.join(playground_dir, project_name, "meta.json"), "r") as file:

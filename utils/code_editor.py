@@ -2,7 +2,10 @@ import logging
 import re
 from copy import deepcopy
 from typing import Optional, List
-
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 from tree_sitter import Language, Parser, Tree, Node
 import tree_sitter_java as tsjava
 from utils.config import GRAMMAR_FILE, LANGUAGE

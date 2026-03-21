@@ -1,6 +1,10 @@
 import argparse
 import json
-
+import sys
+import os
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 将项目根目录加入 Python 路径
+sys.path.append(PROJECT_ROOT)
 from utils.config import *
 from utils.json_db import JsonDatabase
 

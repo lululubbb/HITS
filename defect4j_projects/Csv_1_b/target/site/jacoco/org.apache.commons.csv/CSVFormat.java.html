@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CSVFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Commons CSV</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.csv</a> &gt; <span class="el_source">CSVFormat.java</span></div><h1>CSVFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.csv;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Serializable;
+import java.io.StringWriter;
+
+/**
+ * The format specification of a CSV file.
+ *
+ * This class is immutable.
+ */
+public class CSVFormat implements Serializable {
+
+    /** According to RFC 4180, line breaks are delimited by CRLF */
+    private static final String CRLF = &quot;\r\n&quot;;
+    
+    private final char delimiter;
+    private final char encapsulator;
+    private final char commentStart;
+    private final char escape;
+    private final boolean surroundingSpacesIgnored; // Should leading/trailing spaces be ignored around values?
+    private final boolean emptyLinesIgnored;
+    private final String lineSeparator; // for outputs
+    private final String[] header;
+
+
+    /**
+     * Constant char to be used for disabling comments, escapes and encapsulation.
+     * The value -2 is used because it won't be confused with an EOF signal (-1),
+     * and because the unicode value FFFE would be encoded as two chars (using surrogates)
+     * and thus there should never be a collision with a real text char.
+     */
+    static final char DISABLED = '\ufffe';
+
+    /**
+     * Starting format with no settings defined; used for creating other formats from scratch.
+     */
+<span class="nc" id="L56">    private static CSVFormat PRISTINE = new CSVFormat(DISABLED, DISABLED, DISABLED, DISABLED, false, false, null, null);</span>
+
+    /** 
+     * Standard comma separated format, as for {@link #RFC4180} but allowing blank lines. 
+     * &lt;ul&gt;
+     * &lt;li&gt;withDelimiter(',')&lt;/li&gt;
+     * &lt;li&gt;withEncapsulator('&quot;')&lt;/li&gt;
+     * &lt;li&gt;withEmptyLinesIgnored(true)&lt;/li&gt;
+     * &lt;li&gt;withLineSeparator(CRLF)&lt;/li&gt;
+     * &lt;/ul&gt; 
+     */
+<span class="nc" id="L67">    public static final CSVFormat DEFAULT =</span>
+            PRISTINE.
+<span class="nc" id="L69">            withDelimiter(',')</span>
+<span class="nc" id="L70">            .withEncapsulator('&quot;')</span>
+<span class="nc" id="L71">            .withEmptyLinesIgnored(true)</span>
+<span class="nc" id="L72">            .withLineSeparator(CRLF);</span>
+
+    /**
+     * Comma separated format as defined by &lt;a href=&quot;http://tools.ietf.org/html/rfc4180&quot;&gt;RFC 4180&lt;/a&gt;.
+     * &lt;ul&gt;
+     * &lt;li&gt;withDelimiter(',')&lt;/li&gt;
+     * &lt;li&gt;withEncapsulator('&quot;')&lt;/li&gt;
+     * &lt;li&gt;withLineSeparator(CRLF)&lt;/li&gt;
+     * &lt;li&gt;&lt;/li&gt;
+     * &lt;/ul&gt; 
+     */
+<span class="nc" id="L83">    public static final CSVFormat RFC4180 =</span>
+            PRISTINE.
+<span class="nc" id="L85">            withDelimiter(',')</span>
+<span class="nc" id="L86">            .withEncapsulator('&quot;')</span>
+<span class="nc" id="L87">            .withLineSeparator(CRLF);</span>
+
+    /**
+     * Excel file format (using a comma as the value delimiter).
+     * Note that the actual value delimiter used by Excel is locale dependent,
+     * it might be necessary to customize this format to accomodate to your
+     * regional settings.
+     * &lt;p/&gt;
+     * For example for parsing or generating a CSV file on a French system
+     * the following format will be used:
+     * 
+     * &lt;pre&gt;CSVFormat fmt = CSVFormat.EXCEL.withDelimiter(';');&lt;/pre&gt;
+     */
+<span class="nc" id="L100">    public static final CSVFormat EXCEL =</span>
+            PRISTINE
+<span class="nc" id="L102">            .withDelimiter(',')</span>
+<span class="nc" id="L103">            .withEncapsulator('&quot;')</span>
+<span class="nc" id="L104">            .withLineSeparator(CRLF);</span>
+
+    /** Tab-delimited format, with quote; leading and trailing spaces ignored. */
+<span class="nc" id="L107">    public static final CSVFormat TDF =</span>
+            PRISTINE
+<span class="nc" id="L109">            .withDelimiter('\t')</span>
+<span class="nc" id="L110">            .withEncapsulator('&quot;')</span>
+<span class="nc" id="L111">            .withSurroundingSpacesIgnored(true)</span>
+<span class="nc" id="L112">            .withEmptyLinesIgnored(true)</span>
+<span class="nc" id="L113">            .withLineSeparator(CRLF);</span>
+
+    /**
+     * Default MySQL format used by the &lt;tt&gt;SELECT INTO OUTFILE&lt;/tt&gt; and
+     * &lt;tt&gt;LOAD DATA INFILE&lt;/tt&gt; operations. This is a tab-delimited
+     * format with a LF character as the line separator. Values are not quoted
+     * and special characters are escaped with '\'.
+     * 
+     * @see &lt;a href=&quot;http://dev.mysql.com/doc/refman/5.1/en/load-data.html&quot;&gt;http://dev.mysql.com/doc/refman/5.1/en/load-data.html&lt;/a&gt;
+     */
+<span class="nc" id="L123">    public static final CSVFormat MYSQL =</span>
+            PRISTINE
+<span class="nc" id="L125">            .withDelimiter('\t')</span>
+<span class="nc" id="L126">            .withEscape('\\')</span>
+<span class="nc" id="L127">            .withLineSeparator(&quot;\n&quot;);</span>
+
+
+    /**
+     * Creates a customized CSV format.
+     *
+     * @param delimiter                 the char used for value separation
+     * @param encapsulator              the char used as value encapsulation marker
+     * @param commentStart              the char used for comment identification
+     * @param escape                    the char used to escape special characters in values
+     * @param surroundingSpacesIgnored  &lt;tt&gt;true&lt;/tt&gt; when whitespaces enclosing values should be ignored
+     * @param emptyLinesIgnored         &lt;tt&gt;true&lt;/tt&gt; when the parser should skip emtpy lines
+     * @param lineSeparator             the line separator to use for output
+     * @param header                    the header
+     */
+    CSVFormat(
+            char delimiter,
+            char encapsulator,
+            char commentStart,
+            char escape,
+            boolean surroundingSpacesIgnored,
+            boolean emptyLinesIgnored,
+            String lineSeparator,
+<span class="nc" id="L150">            String[] header) {</span>
+<span class="nc" id="L151">        this.delimiter = delimiter;</span>
+<span class="nc" id="L152">        this.encapsulator = encapsulator;</span>
+<span class="nc" id="L153">        this.commentStart = commentStart;</span>
+<span class="nc" id="L154">        this.escape = escape;</span>
+<span class="nc" id="L155">        this.surroundingSpacesIgnored = surroundingSpacesIgnored;</span>
+<span class="nc" id="L156">        this.emptyLinesIgnored = emptyLinesIgnored;</span>
+<span class="nc" id="L157">        this.lineSeparator = lineSeparator;</span>
+<span class="nc" id="L158">        this.header = header;</span>
+<span class="nc" id="L159">    }</span>
+
+    /**
+     * Returns true if the given character is a line break character.
+     * 
+     * @param c the character to check
+     * 
+     * @return true if &lt;code&gt;c&lt;/code&gt; is a line break character
+     */
+    private static boolean isLineBreak(char c) {
+<span class="nc bnc" id="L169" title="All 4 branches missed.">        return c == '\n' || c == '\r';</span>
+    }
+
+    /**
+     * Verifies the consistency of the parameters and throws an IllegalArgumentException if necessary.
+     */
+    void validate() throws IllegalArgumentException {
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        if (delimiter == encapsulator) {</span>
+<span class="nc" id="L177">            throw new IllegalArgumentException(&quot;The encapsulator character and the delimiter cannot be the same (\&quot;&quot; + encapsulator + &quot;\&quot;)&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        if (delimiter == escape) {</span>
+<span class="nc" id="L181">            throw new IllegalArgumentException(&quot;The escape character and the delimiter cannot be the same (\&quot;&quot; + escape + &quot;\&quot;)&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        if (delimiter == commentStart) {</span>
+<span class="nc" id="L185">            throw new IllegalArgumentException(&quot;The comment start character and the delimiter cannot be the same (\&quot;&quot; + commentStart + &quot;\&quot;)&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L188" title="All 4 branches missed.">        if (encapsulator != DISABLED &amp;&amp; encapsulator == commentStart) {</span>
+<span class="nc" id="L189">            throw new IllegalArgumentException(&quot;The comment start character and the encapsulator cannot be the same (\&quot;&quot; + commentStart + &quot;\&quot;)&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L192" title="All 4 branches missed.">        if (escape != DISABLED &amp;&amp; escape == commentStart) {</span>
+<span class="nc" id="L193">            throw new IllegalArgumentException(&quot;The comment start and the escape character cannot be the same (\&quot;&quot; + commentStart + &quot;\&quot;)&quot;);</span>
+        }
+<span class="nc" id="L195">    }</span>
+
+    /**
+     * Returns the character delimiting the values (typically ';', ',' or '\t').
+     * 
+     * @return the delimiter character
+     */
+    public char getDelimiter() {
+<span class="nc" id="L203">        return delimiter;</span>
+    }
+
+    /**
+     * Returns a copy of this format using the specified delimiter character.
+     * 
+     * @param delimiter the delimiter character
+     * @return A copy of this format using the specified delimiter character
+     * @throws IllegalArgumentException thrown if the specified character is a line break
+     */
+    public CSVFormat withDelimiter(char delimiter) {
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        if (isLineBreak(delimiter)) {</span>
+<span class="nc" id="L215">            throw new IllegalArgumentException(&quot;The delimiter cannot be a line break&quot;);</span>
+        }
+
+<span class="nc" id="L218">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    /**
+     * Returns the character used to encapsulate values containing special characters.
+     * 
+     * @return the encapsulator character
+     */
+    public char getEncapsulator() {
+<span class="nc" id="L227">        return encapsulator;</span>
+    }
+
+    /**
+     * Returns a copy of this format using the specified encapsulator character.
+     * 
+     * @param encapsulator the encapsulator character
+     * @return A copy of this format using the specified encapsulator character
+     * @throws IllegalArgumentException thrown if the specified character is a line break
+     */
+    public CSVFormat withEncapsulator(char encapsulator) {
+<span class="nc bnc" id="L238" title="All 2 branches missed.">        if (isLineBreak(encapsulator)) {</span>
+<span class="nc" id="L239">            throw new IllegalArgumentException(&quot;The encapsulator cannot be a line break&quot;);</span>
+        }
+        
+<span class="nc" id="L242">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    boolean isEncapsulating() {
+<span class="nc bnc" id="L246" title="All 2 branches missed.">        return this.encapsulator != DISABLED;</span>
+    }
+
+    /**
+     * Returns the character marking the start of a line comment.
+     * 
+     * @return the comment start marker.
+     */
+    public char getCommentStart() {
+<span class="nc" id="L255">        return commentStart;</span>
+    }
+
+    /**
+     * Returns a copy of this format using the specified character as the comment start marker.
+     * 
+     * @param commentStart the comment start marker
+     * @return A copy of this format using the specified character as the comment start marker
+     * @throws IllegalArgumentException thrown if the specified character is a line break
+     */
+    public CSVFormat withCommentStart(char commentStart) {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (isLineBreak(commentStart)) {</span>
+<span class="nc" id="L267">            throw new IllegalArgumentException(&quot;The comment start character cannot be a line break&quot;);</span>
+        }
+        
+<span class="nc" id="L270">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    /**
+     * Specifies whether comments are supported by this format.
+     * 
+     * @return &lt;tt&gt;true&lt;/tt&gt; is comments are supported, &lt;tt&gt;false&lt;/tt&gt; otherwise
+     */
+    public boolean isCommentingEnabled() {
+<span class="nc bnc" id="L279" title="All 2 branches missed.">        return this.commentStart != DISABLED;</span>
+    }
+
+    /**
+     * Returns the escape character.
+     * 
+     * @return the escape character
+     */
+    public char getEscape() {
+<span class="nc" id="L288">        return escape;</span>
+    }
+
+    /**
+     * Returns a copy of this format using the specified escape character.
+     * 
+     * @param escape the escape character
+     * @return A copy of this format using the specified escape character
+     * @throws IllegalArgumentException thrown if the specified character is a line break
+     */
+    public CSVFormat withEscape(char escape) {
+<span class="nc bnc" id="L299" title="All 2 branches missed.">        if (isLineBreak(escape)) {</span>
+<span class="nc" id="L300">            throw new IllegalArgumentException(&quot;The escape character cannot be a line break&quot;);</span>
+        }
+        
+<span class="nc" id="L303">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    boolean isEscaping() {
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        return this.escape != DISABLED;</span>
+    }
+
+    /**
+     * Specifies whether spaces around values are ignored when parsing input.
+     * 
+     * @return &lt;tt&gt;true&lt;/tt&gt; if spaces around values are ignored, &lt;tt&gt;false&lt;/tt&gt; if they are treated as part of the value.
+     */
+    public boolean isSurroundingSpacesIgnored() {
+<span class="nc" id="L316">        return surroundingSpacesIgnored;</span>
+    }
+
+    /**
+     * Returns a copy of this format with the specified trimming behavior.
+     *
+     * @param surroundingSpacesIgnored the trimming behavior, &lt;tt&gt;true&lt;/tt&gt; to remove the surrounding spaces,
+     *                                 &lt;tt&gt;false&lt;/tt&gt; to leave the spaces as is.
+     * @return A copy of this format with the specified trimming behavior.
+     */
+    public CSVFormat withSurroundingSpacesIgnored(boolean surroundingSpacesIgnored) {
+<span class="nc" id="L327">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    /**
+     * Specifies whether empty lines between records are ignored when parsing input.
+     * 
+     * @return &lt;tt&gt;true&lt;/tt&gt; if empty lines between records are ignored, &lt;tt&gt;false&lt;/tt&gt; if they are turned into empty records.
+     */
+    public boolean isEmptyLinesIgnored() {
+<span class="nc" id="L336">        return emptyLinesIgnored;</span>
+    }
+
+    /**
+     * Returns a copy of this format with the specified empty line skipping behavior.
+     *
+     * @param emptyLinesIgnored the empty line skipping behavior, &lt;tt&gt;true&lt;/tt&gt; to ignore the empty lines
+     *                          between the records, &lt;tt&gt;false&lt;/tt&gt; to translate empty lines to empty records.
+     * @return A copy of this format  with the specified empty line skipping behavior.
+     */
+    public CSVFormat withEmptyLinesIgnored(boolean emptyLinesIgnored) {
+<span class="nc" id="L347">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    /**
+     * Returns the line separator delimiting output records.
+     * 
+     * @return the line separator
+     */
+    public String getLineSeparator() {
+<span class="nc" id="L356">        return lineSeparator;</span>
+    }
+
+    /**
+     * Returns a copy of this format using the specified output line separator.
+     * 
+     * @param lineSeparator the line separator to be used for output.
+     * 
+     * @return A copy of this format using the specified output line separator
+     */
+    public CSVFormat withLineSeparator(String lineSeparator) {
+<span class="nc" id="L367">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    String[] getHeader() {
+<span class="nc" id="L371">        return header;</span>
+    }
+
+    /**
+     * Returns a copy of this format using the specified header. The header can
+     * either be parsed automatically from the input file with:
+     *
+     * &lt;pre&gt;CSVFormat format = CSVFormat.DEFAULT.withHeader();&lt;/pre&gt;
+     *
+     * or specified manually with:
+     *
+     * &lt;pre&gt;CSVFormat format = CSVFormat.DEFAULT.withHeader(&quot;name&quot;, &quot;email&quot;, &quot;phone&quot;);&lt;/pre&gt;
+     *
+     * @param header the header, &lt;tt&gt;null&lt;/tt&gt; if disabled, empty if parsed automatically, user specified otherwise.
+     *
+     * @return A copy of this format using the specified header
+     */
+    public CSVFormat withHeader(String... header) {
+<span class="nc" id="L389">        return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);</span>
+    }
+
+    /**
+     * Parses the specified content.
+     * 
+     * @param in the input stream
+     */
+    public Iterable&lt;CSVRecord&gt; parse(Reader in) throws IOException {
+<span class="nc" id="L398">        return new CSVParser(in, this);</span>
+    }
+
+    /**
+     * Format the specified values.
+     * 
+     * @param values the values to format
+     */
+    public String format(String... values) {
+<span class="nc" id="L407">        StringWriter out = new StringWriter();</span>
+        try {
+<span class="nc" id="L409">            new CSVPrinter(out, this).println(values);</span>
+<span class="nc" id="L410">        } catch (IOException e) {</span>
+            // should not happen
+<span class="nc" id="L412">        }</span>
+        
+<span class="nc" id="L414">        return out.toString().trim();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L419">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L420">        sb.append(&quot;Delimiter=&lt;&quot;).append(delimiter).append('&gt;');</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">        if (isEscaping()) {</span>
+<span class="nc" id="L422">            sb.append(' ');</span>
+<span class="nc" id="L423">            sb.append(&quot;Escape=&lt;&quot;).append(escape).append('&gt;');</span>
+        }
+<span class="nc bnc" id="L425" title="All 2 branches missed.">        if (isEncapsulating()) {</span>
+<span class="nc" id="L426">            sb.append(' ');</span>
+<span class="nc" id="L427">            sb.append(&quot;Encapsulator=&lt;&quot;).append(encapsulator).append('&gt;');            </span>
+        }
+<span class="nc bnc" id="L429" title="All 2 branches missed.">        if (isCommentingEnabled()) {</span>
+<span class="nc" id="L430">            sb.append(' ');</span>
+<span class="nc" id="L431">            sb.append(&quot;CommentStart=&lt;&quot;).append(commentStart).append('&gt;');</span>
+        }
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (isEmptyLinesIgnored()) {</span>
+<span class="nc" id="L434">            sb.append(&quot; EmptyLines:ignored&quot;);            </span>
+        }
+<span class="nc bnc" id="L436" title="All 2 branches missed.">        if (isSurroundingSpacesIgnored()) {</span>
+<span class="nc" id="L437">            sb.append(&quot; SurroundingSpaces:ignored&quot;);            </span>
+        }
+<span class="nc" id="L439">        return sb.toString();</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
