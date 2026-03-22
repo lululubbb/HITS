@@ -1,0 +1,17 @@
+{
+  "summarization": "The flush() method flushes the underlying Appendable output stream to ensure all buffered data is written out.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "out: Appendable, private final field of CSVPrinter representing the output target",
+    "format: CSVFormat, private final field of CSVPrinter representing the CSV formatting configuration"
+  ],
+  "invoked_outside_methods": [
+    "out.flush(): method of Appendable interface to flush the stream"
+  ],
+  "steps": [
+    {
+      "desp": "Flush the underlying Appendable output stream to write out all buffered data",
+      "code": "out.flush();"
+    }
+  ]
+}

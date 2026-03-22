@@ -1,0 +1,14 @@
+{
+  "summarization": "The method getDelimiter() is a simple getter that returns the value of the private field 'delimiter' of the CSVFormat instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "delimiter: char, private member field of the CSVFormat instance representing the delimiter character"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the delimiter character stored in the instance field 'delimiter'.",
+      "code": "public char getDelimiter() {\n    return delimiter;\n}"
+    }
+  ]
+}

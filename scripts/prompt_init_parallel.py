@@ -48,11 +48,11 @@ def main():
 
     # define thread
     monitor = ChatRateLimiter(10000, 900000, 60)
+    # 修复：使用绝对路径确保提示文件目录存在
+    prompt_root = os.path.join(PROJECT_ROOT, 'prompts')
     if args.wo_slice:
-        prompt_root = 'prompts/no_slice'
         method_workspaces_prefix = 'methods_no_slice'
     else:
-        prompt_root = 'prompts/no_mock'
         method_workspaces_prefix = 'methods'
 
     def thread_init_generation(_method_to_test):
@@ -65,7 +65,7 @@ def main():
                                                          "system_gen.jinja2",
                                                          "gen_code.jinja2")
         _chatter = open_generator.OpenGenerator(key=api_keys, request_url=model_url,
-            model='gpt-3.5-turbo-0125', monitor=monitor)
+            model=model, monitor=monitor)
         _log_dir = os.path.join(playground_dir, project_name, method_workspaces_prefix,
                                 meta_info['method_name_to_idx'][_method_to_test])
         if args.fixing and not os.path.exists(os.path.join(_log_dir.__str__(), 'slice_fixing', 'slice_result.jsonl')):

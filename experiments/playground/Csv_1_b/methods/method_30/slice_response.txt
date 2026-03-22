@@ -1,0 +1,14 @@
+{
+  "summarization": "The method getEncapsulator() is a simple getter that returns the encapsulator character field of the CSVFormat instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "encapsulator: char, private final member field of CSVFormat, representing the encapsulator character"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the encapsulator character field of the CSVFormat instance",
+      "code": "public char getEncapsulator() {\n    return encapsulator;\n}"
+    }
+  ]
+}

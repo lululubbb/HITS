@@ -1,0 +1,36 @@
+{
+  "summarization": "The method withEncapsulator(char encapsulator) creates a new CSVFormat instance with the specified encapsulator character, ensuring that the encapsulator is not a line break and validating that the encapsulator does not conflict with other special characters like delimiter, commentStart, and escape.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "encapsulator: char, input parameter representing the new encapsulator character",
+    "delimiter: char, member field representing the delimiter character",
+    "commentStart: char, member field representing the comment start character",
+    "escape: char, member field representing the escape character",
+    "surroundingSpacesIgnored: boolean, member field",
+    "emptyLinesIgnored: boolean, member field",
+    "lineSeparator: String, member field",
+    "header: String[], member field"
+  ],
+  "invoked_outside_methods": [
+    "isLineBreak(char c): private static method to check if a character is a line break",
+    "validate(): private method to validate the CSVFormat instance"
+  ],
+  "steps": [
+    {
+      "desp": "Check if the provided encapsulator character is a line break and throw an IllegalArgumentException if true",
+      "code": "if (isLineBreak(encapsulator)) {\n    throw new IllegalArgumentException(\"The encapsulator cannot be a line break\");\n}"
+    },
+    {
+      "desp": "Create a new CSVFormat instance with the given encapsulator and existing field values",
+      "code": "CSVFormat format = new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    },
+    {
+      "desp": "Validate the newly created CSVFormat instance to ensure no conflicts between special characters",
+      "code": "format.validate();"
+    },
+    {
+      "desp": "Return the validated new CSVFormat instance",
+      "code": "return format;"
+    }
+  ]
+}

@@ -34,8 +34,10 @@ class SliceInfoGenerator(BasicProcedure):
         direction_3 = collection.find_one({"table_name": "direction_3"})
         assert direction_3 is not None
 
-        pattern_1 = r"```[json]*([\s\S]*?)```"
-        pattern_2 = r"```json*([\s\S]*?)```"
+        # 改进：更加灵活和准确的正则表达式模式
+        # 匹配 ``` 或 ```json 开头，任意内容，``` 结尾的代码块
+        pattern_1 = r"```(?:json)?\s*([\s\S]*?)```"
+        pattern_2 = r"```\s*json\s*([\s\S]*?)```"
         target_json = None
         failed_reason = ""
         result = ""
@@ -46,15 +48,37 @@ class SliceInfoGenerator(BasicProcedure):
             temperature = 0.0 if i == 1 else 0.4
             result = chatter.generate(self.generate_template.render(direction_3), self.system_template.render(),
                                       temperature=temperature)[1][0]
+            
+            # 策略1：首先尝试通过代码块正则表达式提取 JSON
             matches = re.findall(pattern_1, result)
             target_str = [match.strip() for match in matches]
+            
+            # 策略2：如果代码块方法失败，尝试第二个正则模式
             if len(target_str) == 0:
                 matches = re.findall(pattern_2, result)
                 target_str = [match.strip() for match in matches]
-
+            
+            # 策略3：如果代码块都失败，尝试直接解析整个响应为 JSON
             if len(target_str) == 0:
-                failed_reason = "Regex match failed"
+                try:
+                    target_json = json.loads(result)
+                    keys_to_check = ['invoked_outside_vars', "invoked_outside_methods", "summarization", 'steps']
+                    all_contains = True
+                    for key in keys_to_check:
+                        if key not in target_json:
+                            all_contains = False
+                            break
+                    if all_contains:
+                        break
+                    else:
+                        target_json = None
+                        failed_reason = "Direct JSON parse: No key element found"
+                except JSONDecodeError:
+                    target_json = None
+                    failed_reason = f"Direct JSON parse failed, Regex also failed. Response preview: {result[:200]}"
+                    self.logger.debug(f"LLM output for debugging: {result[:500]}")
             else:
+                # 从代码块中解析 JSON
                 try:
                     target_json = json.loads(target_str[-1])
                     keys_to_check = ['invoked_outside_vars', "invoked_outside_methods", "summarization", 'steps']
@@ -67,10 +91,10 @@ class SliceInfoGenerator(BasicProcedure):
                         break
                     else:
                         target_json = None
-                        failed_reason = "No key element found"
+                        failed_reason = "Code block JSON: No key element found"
                 except JSONDecodeError:
                     target_json = None
-                    failed_reason = "Json decode error"
+                    failed_reason = "Code block JSON decode error"
 
         if target_json is not None:
             target_json['table_name'] = 'add_info'

@@ -1,0 +1,16 @@
+```json
+{
+  "summarization": "The method isSurroundingSpacesIgnored() is a simple accessor that returns the value of the private boolean field 'surroundingSpacesIgnored' indicating whether surrounding spaces should be ignored in CSV parsing.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "surroundingSpacesIgnored: boolean, private member field of CSVFormat representing if surrounding spaces are ignored"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the value of the field 'surroundingSpacesIgnored' which indicates whether surrounding spaces are ignored.",
+      "code": "return surroundingSpacesIgnored;"
+    }
+  ]
+}
+```

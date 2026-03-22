@@ -1,0 +1,28 @@
+{
+  "summarization": "The method withEscape(char escape) creates and returns a new CSVFormat instance with the specified escape character, after validating that the escape character is not a line break and does not conflict with other special characters used in the CSVFormat instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "escape: char, input parameter, the new escape character to set",
+    "delimiter: char, member field of CSVFormat, the delimiter character",
+    "encapsulator: char, member field of CSVFormat, the encapsulator character",
+    "commentStart: char, member field of CSVFormat, the comment start character",
+    "surroundingSpacesIgnored: boolean, member field of CSVFormat, flag for ignoring surrounding spaces",
+    "emptyLinesIgnored: boolean, member field of CSVFormat, flag for ignoring empty lines",
+    "lineSeparator: String, member field of CSVFormat, the line separator string",
+    "header: String[], member field of CSVFormat, the header array"
+  ],
+  "invoked_outside_methods": [
+    "isLineBreak(char): private static method, checks if a character is a line break",
+    "validate(): private method, validates the CSVFormat instance (called implicitly or explicitly in constructors or setters)"
+  ],
+  "steps": [
+    {
+      "desp": "Check if the provided escape character is a line break and throw an exception if so",
+      "code": "if (isLineBreak(escape)) {\n    throw new IllegalArgumentException(\"The escape character cannot be a line break\");\n}"
+    },
+    {
+      "desp": "Create and return a new CSVFormat instance with the given escape character and all other fields copied from the current instance",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}

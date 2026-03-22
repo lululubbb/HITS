@@ -1,0 +1,26 @@
+{
+  "summarization": "The method withDelimiter(char delimiter) creates a new CSVFormat instance with the specified delimiter character, after validating that the delimiter is not a line break character.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "encapsulator: char, member field of CSVFormat representing the encapsulator character",
+    "commentStart: char, member field of CSVFormat representing the comment start character",
+    "escape: char, member field of CSVFormat representing the escape character",
+    "surroundingSpacesIgnored: boolean, member field of CSVFormat indicating if surrounding spaces are ignored",
+    "emptyLinesIgnored: boolean, member field of CSVFormat indicating if empty lines are ignored",
+    "lineSeparator: String, member field of CSVFormat representing the line separator",
+    "header: String[], member field of CSVFormat representing the header"
+  ],
+  "invoked_outside_methods": [
+    "isLineBreak(char c): private static method of CSVFormat to check if a character is a line break"
+  ],
+  "steps": [
+    {
+      "desp": "Validate that the provided delimiter character is not a line break character.",
+      "code": "if (isLineBreak(delimiter)) {\n    throw new IllegalArgumentException(\"The delimiter cannot be a line break\");\n}"
+    },
+    {
+      "desp": "Create and return a new CSVFormat instance with the given delimiter and existing field values.",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}

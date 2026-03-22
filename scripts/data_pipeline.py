@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-HITS Pipeline Runner
-整合整个自动化Java单元测试生成流程的脚本。
-从初始化工作区到分片、生成测试、修复、覆盖率计算等。
+HITS Pipeline with Data Parsing Integration
+整合数据解析、数据库初始化和测试生成流程。
+
 cd /home/chenlu/HITS
-python run.py --project_name Csv_1_b --put_root /home/chenlu/defects4j_projects
+python scripts/data_pipeline.py --project_name Csv_1_b --put_root /home/chenlu/HITS/defect4j_projects
 """
 
 import argparse
@@ -13,12 +13,14 @@ import sys
 import os
 from pathlib import Path
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def run_command(cmd, description):
     """运行命令并打印描述"""
     print(f"\n=== {description} ===")
     print(f"Running: {' '.join(cmd)}")
     try:
-        result = subprocess.run(cmd, check=True, cwd=Path(__file__).parent)
+        result = subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         print(f"✓ {description} completed successfully")
         return True
     except subprocess.CalledProcessError as e:
@@ -26,7 +28,7 @@ def run_command(cmd, description):
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description="HITS Pipeline Runner")
+    parser = argparse.ArgumentParser(description="HITS Data Pipeline with Parsing")
     parser.add_argument("--project_name", required=True, help="项目名称，如 Csv_1_b")
     parser.add_argument("--put_root", required=True, help="PUT根目录，如 /home/chenlu/defects4j_projects")
     args = parser.parse_args()
@@ -41,27 +43,42 @@ def main():
         sys.exit(1)
 
     # 检查是否在项目根目录
-    if not Path("scripts/create_workspace.py").exists():
+    if not Path("scripts/data_pipeline.py").exists():
         print("✗ Please run this script from the HITS project root directory.")
         sys.exit(1)
 
-    print("🚀 Starting HITS Pipeline for project:", project_name)
+    print("🚀 Starting HITS Data Pipeline for project:", project_name)
     print("PUT root:", put_root)
 
-    # 步骤0a: 初始化 JSON 数据库（从源代码提取方法元数据）
+    # 步骤0a: 解析项目源代码，提取类和方法信息
     if not run_command([
-        sys.executable, "scripts/init_json_db.py",
-        "--project_name", project_name,
-        "--put_root", put_root
-    ], "Step 0a: Initialize JSON Database from Source Code"):
-        print("⚠ Step 0a failed, but continuing as it may be a detection issue...")
+        sys.executable, "scripts/task.py", "parse", put_root
+    ], "Step 0a: Parse Project Source Code"):
+        print("⚠ Step 0a failed, but continuing...")
 
-    # 步骤0b: 初始化工作区（基于 JSON 数据库中的方法）
+    # 步骤0b: 将解析结果插入JsonDB
+    class_info_dir = os.path.join(PROJECT_ROOT, "class_info", project_name)
+    if os.path.exists(class_info_dir):
+        if not run_command([
+            sys.executable, "-c",
+            f"from scripts.parse_data import parse_data; parse_data('{class_info_dir}', '{project_name}')"
+        ], "Step 0b: Insert Parsed Data into JsonDB"):
+            print("⚠ Step 0b failed, but continuing...")
+    else:
+        print(f"⚠ Class info directory not found: {class_info_dir}, skipping Step 0b")
+
+    # 步骤0c: 从JsonDB导出d1、d3、raw数据
+    if not run_command([
+        sys.executable, "scripts/export_data.py", project_name
+    ], "Step 0c: Export Data from JsonDB"):
+        print("⚠ Step 0c failed, but continuing...")
+
+    # 步骤0d: 初始化工作区（基于导出的数据）
     if not run_command([
         sys.executable, "scripts/create_workspace.py",
         "--project_name", project_name,
         "--put_root", put_root
-    ], "Step 0b: Initialize Workspace"):
+    ], "Step 0d: Initialize Workspace"):
         sys.exit(1)
 
     # 步骤1: 生成方法分片
@@ -138,7 +155,7 @@ def main():
     ], "Step 6: Generate Coverage Report"):
         sys.exit(1)
 
-    print("\n🎉 HITS Pipeline completed successfully!")
+    print("\n🎉 HITS Data Pipeline completed successfully!")
     print(f"Check results in playground directory for project: {project_name}")
 
 if __name__ == "__main__":

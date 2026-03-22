@@ -1,0 +1,17 @@
+{
+  "summarization": "The method parse(Reader in) creates and returns a new CSVParser instance initialized with the given Reader and the current CSVFormat instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "in: Reader, input parameter representing the source of CSV data to parse",
+    "this: CSVFormat, the current instance of CSVFormat containing configuration for parsing"
+  ],
+  "invoked_outside_methods": [
+    "new CSVParser(Reader, CSVFormat): constructor of CSVParser class that takes a Reader and a CSVFormat instance to create a CSV parser"
+  ],
+  "steps": [
+    {
+      "desp": "Instantiate a CSVParser with the given Reader and the current CSVFormat instance",
+      "code": "return new CSVParser(in , this );"
+    }
+  ]
+}

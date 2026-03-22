@@ -63,8 +63,20 @@ class BasicProcedure:
         self.prompt_root = prompt_root
         self.user_template_name = user_template_file_name
         self.system_template_file_name = system_template_file_name
-        assert os.path.exists(self.prompt_root)
-        assert os.path.exists(os.path.join(self.prompt_root, self.user_template_name))
+        
+        # 改进：提供更清晰的错误消息
+        if not os.path.exists(self.prompt_root):
+            raise FileNotFoundError(
+                f"提示文件目录不存在: {self.prompt_root}\n"
+                f"请检查 prompt_root 路径是否正确。"
+            )
+        
+        user_template_full_path = os.path.join(self.prompt_root, self.user_template_name)
+        if not os.path.exists(user_template_full_path):
+            raise FileNotFoundError(
+                f"用户模板文件不存在: {user_template_full_path}\n"
+                f"请检查 {self.prompt_root} 目录下是否包含 {self.user_template_name} 文件。"
+            )
 
         self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(prompt_root),
                                       trim_blocks=True,

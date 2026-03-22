@@ -38,13 +38,15 @@ def main():
 
     # define thread
     monitor = ChatRateLimiter(request_limit=9000, token_limit=900000, bucket_size_in_seconds=60)
+    # 修复：使用绝对路径确保提示文件目录存在
+    prompt_root = os.path.join(PROJECT_ROOT, 'prompts')
 
     def thread_slice_generation(_method_to_test):
-        _slicer = get_slices.SliceInfoGenerator("prompts/no_mock",
+        _slicer = get_slices.SliceInfoGenerator(prompt_root,
                                                 "system_gen.jinja2",
                                                 "gen_slice.jinja2")
         _chatter = open_generator.OpenGenerator(key=api_keys, request_url=model_url,
-                                                model='gpt-3.5-turbo-0125',
+                                                model=model,
                                                 monitor=monitor)  # share the monitor. Since multi-thread has GIL lock
         _log_dir = os.path.join(playground_dir, project_name, "methods",
                                 meta_info['method_name_to_idx'][_method_to_test])

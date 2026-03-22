@@ -1,0 +1,14 @@
+{
+  "summarization": "The method getCommentStart() is a simple accessor that returns the value of the private field 'commentStart' in the CSVFormat object.",
+  "//": "No local variables or external method calls are involved in this method.",
+  "invoked_outside_vars": [
+    "commentStart: char, private member field of CSVFormat representing the comment start character"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the comment start character stored in the 'commentStart' field.",
+      "code": "public char getCommentStart() {\n    return commentStart;\n}"
+    }
+  ]
+}

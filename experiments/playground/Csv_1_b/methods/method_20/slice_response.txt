@@ -1,0 +1,23 @@
+{
+  "summarization": "The println() method writes a line separator to the output Appendable, marking the end of a CSV record, and updates the internal state to indicate that a new line has started.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "out: Appendable, private final field of CSVPrinter, the output target to write to",
+    "format: CSVFormat, private final field of CSVPrinter, provides formatting details like line separator",
+    "newLine: boolean, private field of CSVPrinter, tracks if the printer is at the beginning of a new line"
+  ],
+  "invoked_outside_methods": [
+    "format.getLineSeparator(): public member method of CSVFormat, returns the string used as line separator",
+    "append(CharSequence): void member method of CSVPrinter, appends the given CharSequence to the output Appendable"
+  ],
+  "steps": [
+    {
+      "desp": "Append the configured line separator to the output",
+      "code": "append(format.getLineSeparator());"
+    },
+    {
+      "desp": "Update internal state to indicate a new line has started",
+      "code": "newLine = true;"
+    }
+  ]
+}

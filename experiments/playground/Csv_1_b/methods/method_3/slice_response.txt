@@ -1,0 +1,16 @@
+{
+  "summarization": "The getLineNumber() method returns the current line number from the lexer object associated with the CSVParser instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "lexer: Lexer, private final field of CSVParser, used to get the current line number"
+  ],
+  "invoked_outside_methods": [
+    "lexer.getLineNumber(): public member method of object 'lexer' of class 'Lexer', returns the current line number"
+  ],
+  "steps": [
+    {
+      "desp": "Return the current line number from the lexer",
+      "code": "return lexer.getLineNumber();"
+    }
+  ]
+}

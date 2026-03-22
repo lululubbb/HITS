@@ -1,0 +1,14 @@
+{
+  "summarization": "The getEscape() method is a simple accessor that returns the escape character configured in the CSVFormat instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "escape: char, private final member field of CSVFormat representing the escape character"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the escape character field of the CSVFormat instance",
+      "code": "public char getEscape() {\n    return escape;\n}"
+    }
+  ]
+}

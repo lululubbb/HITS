@@ -1,0 +1,23 @@
+{
+  "summarization": "The method next() retrieves the next CSVRecord from the CSV input by checking if more records exist, then fetching the next record or throwing an exception if none are available.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "headerMapping: Map<String, Integer>, a class field mapping header names to their indexes",
+    "reusableToken: Token, a class field used for token reuse",
+    "lexer: Lexer, a class field used to tokenize the CSV input"
+  ],
+  "invoked_outside_methods": [
+    "hasNext(): boolean, a public member method of CSVParser to check if more records exist",
+    "getNextRecord(): CSVRecord, a private member method of CSVParser that fetches the next CSV record"
+  ],
+  "steps": [
+    {
+      "desp": "Check if there are more CSV records available by invoking hasNext().",
+      "code": "if (!hasNext()) {\n    throw new NoSuchElementException(\"No more CSV records available\");\n}"
+    },
+    {
+      "desp": "Retrieve and return the next CSV record by invoking getNextRecord().",
+      "code": "return getNextRecord();"
+    }
+  ]
+}

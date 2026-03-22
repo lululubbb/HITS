@@ -1,0 +1,15 @@
+{
+  "summarization": "The method isCommentingEnabled() checks whether commenting is enabled in the CSVFormat instance by verifying if the commentStart character is not equal to the DISABLED character.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "commentStart: char, a member field of CSVFormat, representing the character that marks the start of a comment",
+    "DISABLED: char, a static final field of CSVFormat, representing the disabled state for commentStart"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Check if commenting is enabled by comparing the commentStart character with the DISABLED character.",
+      "code": "return commentStart != DISABLED;"
+    }
+  ]
+}

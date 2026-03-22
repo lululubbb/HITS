@@ -1,0 +1,23 @@
+{
+  "summarization": "The method withHeader creates a new CSVFormat instance with the specified header array, preserving all other CSVFormat properties unchanged.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "header: String[], input parameter, the header array to set in the new CSVFormat instance",
+    "delimiter: char, member field of CSVFormat, the delimiter character",
+    "encapsulator: char, member field of CSVFormat, the encapsulator character",
+    "commentStart: char, member field of CSVFormat, the comment start character",
+    "escape: char, member field of CSVFormat, the escape character",
+    "surroundingSpacesIgnored: boolean, member field of CSVFormat, flag indicating if surrounding spaces are ignored",
+    "emptyLinesIgnored: boolean, member field of CSVFormat, flag indicating if empty lines are ignored",
+    "lineSeparator: String, member field of CSVFormat, the line separator string",
+    "header: String[], member field of CSVFormat, the current header array"
+  ],
+  "invoked_outside_methods": []
+  ,
+  "steps": [
+    {
+      "desp": "Create a new CSVFormat instance with the provided header array while copying all other existing CSVFormat properties unchanged.",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}

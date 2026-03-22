@@ -1,0 +1,21 @@
+{
+  "summarization": "The method withEmptyLinesIgnored(boolean emptyLinesIgnored) returns a new CSVFormat instance with the emptyLinesIgnored field set to the provided boolean value, while all other fields remain unchanged.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "this.delimiter: char, member field of CSVFormat, the delimiter character",
+    "this.encapsulator: char, member field of CSVFormat, the encapsulator character",
+    "this.commentStart: char, member field of CSVFormat, the comment start character",
+    "this.escape: char, member field of CSVFormat, the escape character",
+    "this.surroundingSpacesIgnored: boolean, member field of CSVFormat, flag indicating if surrounding spaces are ignored",
+    "this.lineSeparator: String, member field of CSVFormat, the line separator string",
+    "this.header: String[], member field of CSVFormat, the header array"
+  ],
+  "invoked_outside_methods": []
+  ,
+  "steps": [
+    {
+      "desp": "Create and return a new CSVFormat instance with the emptyLinesIgnored field set to the given parameter, copying all other fields from the current instance.",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}

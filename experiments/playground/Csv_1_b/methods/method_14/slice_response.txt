@@ -1,0 +1,24 @@
+```json
+{
+  "summarization": "The method withSurroundingSpacesIgnored creates and returns a new CSVFormat instance with the surroundingSpacesIgnored property set to the specified boolean value, while keeping all other properties the same as the current instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "surroundingSpacesIgnored: boolean, input parameter to the method, specifying whether surrounding spaces should be ignored",
+    "delimiter: char, instance field representing the delimiter character",
+    "encapsulator: char, instance field representing the encapsulator character",
+    "commentStart: char, instance field representing the comment start character",
+    "escape: char, instance field representing the escape character",
+    "emptyLinesIgnored: boolean, instance field indicating if empty lines are ignored",
+    "lineSeparator: String, instance field representing the line separator",
+    "header: String[], instance field representing the CSV header"
+  ],
+  "invoked_outside_methods": []
+  ,
+  "steps": [
+    {
+      "desp": "Create and return a new CSVFormat instance with the surroundingSpacesIgnored field set to the input parameter, while copying all other fields from the current instance",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}
+```

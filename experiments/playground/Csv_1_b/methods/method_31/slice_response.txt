@@ -1,0 +1,32 @@
+{
+  "summarization": "The method withCommentStart(char commentStart) creates a new CSVFormat instance with the specified commentStart character after validating that the character is not a line break and does not conflict with the delimiter, encapsulator, or escape characters.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "commentStart: char, input parameter, the new comment start character to set",
+    "delimiter: char, member field of CSVFormat, the delimiter character",
+    "encapsulator: char, member field of CSVFormat, the encapsulator character",
+    "escape: char, member field of CSVFormat, the escape character",
+    "surroundingSpacesIgnored: boolean, member field of CSVFormat",
+    "emptyLinesIgnored: boolean, member field of CSVFormat",
+    "lineSeparator: String, member field of CSVFormat",
+    "header: String[], member field of CSVFormat"
+  ],
+  "invoked_outside_methods": [
+    "isLineBreak(char c): private static method of CSVFormat, checks if a character is a line break",
+    "new CSVFormat(char delimiter, char encapsulator, char commentStart, char escape, boolean surroundingSpacesIgnored, boolean emptyLinesIgnored, String lineSeparator, String[] header): constructor of CSVFormat"
+  ],
+  "steps": [
+    {
+      "desp": "Validate that the commentStart character is not a line break",
+      "code": "if (isLineBreak(commentStart)) {\n    throw new IllegalArgumentException(\"The comment start character cannot be a line break\");\n}"
+    },
+    {
+      "desp": "Validate that the commentStart character does not conflict with the delimiter, encapsulator, or escape characters",
+      "code": "if (commentStart == delimiter) {\n    throw new IllegalArgumentException(\"The comment start character and the delimiter cannot be the same (\\\"\" + commentStart + \"\\\")\");\n}\nif (commentStart == encapsulator) {\n    throw new IllegalArgumentException(\"The comment start character and the encapsulator cannot be the same (\\\"\" + commentStart + \"\\\")\");\n}\nif (commentStart == escape) {\n    throw new IllegalArgumentException(\"The comment start and the escape character cannot be the same (\\\"\" + commentStart + \"\\\")\");\n}"
+    },
+    {
+      "desp": "Return a new CSVFormat instance with the updated commentStart character preserving other fields",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}

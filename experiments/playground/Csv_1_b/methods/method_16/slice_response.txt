@@ -1,0 +1,33 @@
+```json
+{
+  "summarization": "The println(String[] values) method prints an array of string values as a CSV record, handling delimiters and line separators according to the CSVFormat configuration. It prints each value with proper escaping or encapsulation, separates values with delimiters, and ends with a line separator.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "values: String[], input parameter, the array of string values to print",
+    "this.out: Appendable, private final field, the output target where CSV data is written",
+    "this.format: CSVFormat, private final field, the configuration object defining delimiters, line separators, encapsulators, escape characters, and comment start",
+    "this.newLine: boolean, private field indicating if the printer is at the start of a new line"
+  ],
+  "invoked_outside_methods": [
+    "validate(): void, private method, validates the printer's state before printing",
+    "print(String): void, public method, prints a single string value with escaping/encapsulation",
+    "printSep(): void, private method, prints the delimiter separator between values",
+    "append(String): void, private method, appends a string to the output",
+    "append(char): void, private method, appends a single character to the output"
+  ],
+  "steps": [
+    {
+      "desp": "Validate the printer's state before printing",
+      "code": "validate();"
+    },
+    {
+      "desp": "Print each value in the input array separated by delimiters",
+      "code": "for (int i = 0; i < values.length; i++) {\n    if (i > 0) {\n        printSep();\n    }\n    print(values[i]);\n}"
+    },
+    {
+      "desp": "Append the line separator after printing all values and mark the printer as at a new line",
+      "code": "append(format.getLineSeparator());\nnewLine = true;"
+    }
+  ]
+}
+```

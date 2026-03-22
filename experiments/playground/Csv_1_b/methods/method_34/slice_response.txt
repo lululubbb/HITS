@@ -1,0 +1,24 @@
+{
+  "summarization": "The method print(String value, boolean checkForEscape) prints the given string value to the Appendable output. It directly appends the entire value to the output if checkForEscape is false; otherwise, it prints the value by invoking a more detailed print method that handles escaping and encapsulation starting from offset 0 to the length of the value.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "value: String, input parameter, the string to be printed",
+    "checkForEscape: boolean, input parameter, flag to determine if escaping should be checked",
+    "out: Appendable, private member field, the output destination",
+    "format: CSVFormat, private member field, used for format configurations"
+  ],
+  "invoked_outside_methods": [
+    "append(CharSequence value): void, private method to append the whole CharSequence to the output",
+    "print(CharSequence value, int offset, int len): void, private method to print a substring of the value with escaping and encapsulation logic"
+  ],
+  "steps": [
+    {
+      "desp": "Check if escaping is not required and directly append the value to the output",
+      "code": "if (!checkForEscape) {\n    append(value);\n}"
+    },
+    {
+      "desp": "If escaping is required, print the value with escaping and encapsulation starting from offset 0 to value length",
+      "code": "else {\n    print(value, 0, value.length());\n}"
+    }
+  ]
+}

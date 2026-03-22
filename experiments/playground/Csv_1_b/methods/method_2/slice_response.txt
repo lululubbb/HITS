@@ -1,0 +1,23 @@
+```json
+{
+  "summarization": "The hasNext() method determines if there is another CSV record available to be read from the input. It does so by attempting to fetch the next CSVRecord using getNextRecord(), storing it in the 'record' field, and returning true if a record is found, or false otherwise.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "record: List<String>, a member field storing the current CSV record's fields",
+    "getNextRecord(): private method of CSVParser, returns the next CSVRecord or null if none available"
+  ],
+  "invoked_outside_methods": [
+    "getNextRecord(): private method of CSVParser, fetches the next CSVRecord from the input source"
+  ],
+  "steps": [
+    {
+      "desp": "Attempt to fetch the next CSV record and update the internal record state accordingly",
+      "code": "record = getNextRecord();"
+    },
+    {
+      "desp": "Return true if a next record exists, otherwise false",
+      "code": "return record != null;"
+    }
+  ]
+}
+```

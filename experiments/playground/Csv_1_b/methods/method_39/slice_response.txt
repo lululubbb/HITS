@@ -1,0 +1,14 @@
+{
+  "summarization": "The method get(int i) in CSVRecord returns the value at the specified index i from the values array of the CSV record.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "values: String[], private final member field of CSVRecord, holding the array of record values"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the value at the specified index i from the values array",
+      "code": "return this.values[i];"
+    }
+  ]
+}

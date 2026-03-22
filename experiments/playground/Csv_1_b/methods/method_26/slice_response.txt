@@ -1,0 +1,22 @@
+```json
+{
+  "summarization": "The iterator() method returns an Iterator over CSVRecord objects, enabling iteration over the parsed CSV records from the input source.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "getRecords(): public method, returns List<CSVRecord>, obtains all CSV records parsed",
+    "getRecord(): public method, returns CSVRecord, obtains a single CSV record",
+    "hasNext(): public method, returns boolean, indicates if more CSV records are available",
+    "next(): public method, returns CSVRecord, returns the next CSV record",
+    "remove(): public method, throws UnsupportedOperationException, unsupported operation in iterator"
+  ],
+  "invoked_outside_methods": [
+    "new Iterator<CSVRecord>() {...}: anonymous inner class implementing Iterator interface with hasNext(), next(), and remove() methods"
+  ],
+  "steps": [
+    {
+      "desp": "Create and return an anonymous Iterator<CSVRecord> instance that provides iteration over CSVRecord objects",
+      "code": "return new Iterator<CSVRecord>() {\n    public boolean hasNext() {\n        return CSVParser.this.hasNext();\n    }\n\n    public CSVRecord next() {\n        return CSVParser.this.next();\n    }\n\n    public void remove() {\n        throw new UnsupportedOperationException();\n    }\n};"
+    }
+  ]
+}
+```

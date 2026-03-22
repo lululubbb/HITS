@@ -1,0 +1,16 @@
+```json
+{
+  "summarization": "The method size() returns the number of elements in the CSV record by returning the length of the internal array 'values'.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "values: private final String[], a member field holding the values of the CSV record"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the number of values in the CSV record by accessing the length of the 'values' array.",
+      "code": "return values.length;"
+    }
+  ]
+}
+```

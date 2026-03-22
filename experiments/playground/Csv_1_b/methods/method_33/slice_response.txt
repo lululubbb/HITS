@@ -1,0 +1,16 @@
+{
+  "summarization": "The iterator() method returns an Iterator<String> over the array of values stored in the CSVRecord instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "values: String[], member field of CSVRecord, the array of values representing the CSV record fields"
+  ],
+  "invoked_outside_methods": [
+    "Arrays.asList(values): static method from java.util.Arrays, converts the array to a List to obtain its iterator"
+  ],
+  "steps": [
+    {
+      "desp": "Convert the array of values to a List and return its iterator",
+      "code": "return Arrays.asList(values).iterator();"
+    }
+  ]
+}

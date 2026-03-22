@@ -1,0 +1,12 @@
+{
+  "summarization": "The remove() method in CSVParser throws an UnsupportedOperationException, indicating that the remove operation is not supported by this iterator implementation.",
+  "//": "The method remove() neither uses any parameters nor accesses any fields or calls any other methods. It simply throws an exception.",
+  "invoked_outside_vars": [],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Throw UnsupportedOperationException to indicate that removal of elements is not supported by this iterator.",
+      "code": "throw new UnsupportedOperationException();"
+    }
+  ]
+}

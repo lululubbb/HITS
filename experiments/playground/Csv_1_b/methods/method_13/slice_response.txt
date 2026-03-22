@@ -1,0 +1,22 @@
+{
+  "summarization": "The method withLineSeparator(String lineSeparator) creates a new CSVFormat instance with the specified line separator, preserving all other existing settings of the current CSVFormat instance.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "lineSeparator: String, input parameter, the new line separator to set in the CSVFormat instance",
+    "delimiter: char, member field of CSVFormat, the current delimiter character",
+    "encapsulator: char, member field of CSVFormat, the current encapsulator character",
+    "commentStart: char, member field of CSVFormat, the current comment start character",
+    "escape: char, member field of CSVFormat, the current escape character",
+    "surroundingSpacesIgnored: boolean, member field of CSVFormat, flag indicating if surrounding spaces are ignored",
+    "emptyLinesIgnored: boolean, member field of CSVFormat, flag indicating if empty lines are ignored",
+    "header: String[], member field of CSVFormat, the current header array"
+  ],
+  "invoked_outside_methods": []
+  ,
+  "steps": [
+    {
+      "desp": "Create and return a new CSVFormat instance with the specified line separator while preserving all other existing configuration fields.",
+      "code": "return new CSVFormat(delimiter, encapsulator, commentStart, escape, surroundingSpacesIgnored, emptyLinesIgnored, lineSeparator, header);"
+    }
+  ]
+}

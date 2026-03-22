@@ -1,0 +1,14 @@
+{
+  "summarization": "The getLineSeparator() method returns the lineSeparator field of the CSVFormat instance, which represents the line separator string used in the CSV format.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "lineSeparator: String, private final class field representing the line separator string"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the lineSeparator field value representing the line separator string used in this CSVFormat instance.",
+      "code": "public String getLineSeparator() {\n    return lineSeparator;\n}"
+    }
+  ]
+}

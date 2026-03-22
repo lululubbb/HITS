@@ -1,0 +1,33 @@
+{
+  "summarization": "The method printComment prints a comment line to the output Appendable. It starts by appending the comment start string from the CSV format, then appends a space, then prints the comment content with appropriate escaping or encapsulation, and finally prints a newline.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "comment: String, input parameter, the comment text to print",
+    "this.out: Appendable, class field, the output destination",
+    "this.format: CSVFormat, class field, contains formatting details like comment start and line separator"
+  ],
+  "invoked_outside_methods": [
+    "append(CharSequence): void, appends a CharSequence to the output",
+    "append(char): void, appends a single character to the output",
+    "print(CharSequence, int, int): void, prints a subsequence of the comment string with proper escaping or encapsulation",
+    "println(): void, prints a newline to the output"
+  ],
+  "steps": [
+    {
+      "desp": "Append the comment start string from the CSV format to the output",
+      "code": "append(format.getCommentStart());"
+    },
+    {
+      "desp": "Append a space character after the comment start",
+      "code": "append(' ');"
+    },
+    {
+      "desp": "Print the comment content with proper escaping or encapsulation",
+      "code": "print(comment, 0, comment.length());"
+    },
+    {
+      "desp": "Print a newline after the comment",
+      "code": "println();"
+    }
+  ]
+}

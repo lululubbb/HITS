@@ -1,0 +1,29 @@
+{
+  "summarization": "The getRecords() method collects all CSVRecord objects by iterating through the CSV input until no more records are available, accumulating them into a list and returning that list.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "reusableToken: Token, a member field used as a reusable container for tokens during parsing",
+    "getRecord(): CSVRecord, a public member method that returns the next CSVRecord from the input"
+  ],
+  "invoked_outside_methods": [
+    "getRecord(): public member method of this CSVParser class, responsible for retrieving the next CSVRecord from the input"
+  ],
+  "steps": [
+    {
+      "desp": "Initialize the list to hold CSVRecord objects",
+      "code": "List<CSVRecord> answer = new ArrayList<>();"
+    },
+    {
+      "desp": "Retrieve the first CSVRecord",
+      "code": "CSVRecord record = getRecord();"
+    },
+    {
+      "desp": "Iterate over the CSV records until no more records are available\n    - Add each retrieved CSVRecord to the list\n    - Retrieve the next CSVRecord",
+      "code": "while (record != null) {\n    answer.add(record);\n    record = getRecord();\n}"
+    },
+    {
+      "desp": "Return the list of all collected CSVRecord objects",
+      "code": "return answer;"
+    }
+  ]
+}

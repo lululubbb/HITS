@@ -1,23 +1,38 @@
 """
 This file is for parsing the .json data.
-And insert them into Current Database.
+And insert them into JsonDB (adapted from MySQL version).
 
-Author: Xie zhuokui
-Date: 2023-04-01
+Author: Adapted for HITS project
+Date: 2024-03-22
 """
 
 import json
 import os
-from database import database
+import sys
+
+# 添加项目根目录到路径
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
+
+from utils.json_db import JsonDatabase
+from utils.config import json_db_root
 
 
-def parse_data(dir_path: str):
+def database(project_name: str):
     """
-    Parse the data from .json files.
+    Get JsonDB instance for the project
+    """
+    return JsonDatabase(json_db_root, project_name)
+
+
+def parse_data(dir_path: str, project_name: str):
+    """
+    Parse the data from .json files and insert into JsonDB.
     :param dir_path: the path of the .json files.
+    :param project_name: the project name
     :return: None
     """
-    db = database()
+    db = database(project_name)
     for root, dirs, files in os.walk(dir_path):
         for filename in files:
             if filename.endswith('.json'):
@@ -82,29 +97,33 @@ def parse_data(dir_path: str):
                                 c_deps[dep_class].append(m_deps[dep_class])
 
                         # insert method data into table method
-                        db.insert("method", row={"project_name": project_name,
-                                                 "signature": m_sig,
-                                                 "method_name": method_name,
-                                                 "parameters": parameters,
-                                                 "source_code": source_code,
-                                                 "class_name": class_name,
-                                                 "dependencies": str(m_deps),
-                                                 "use_field": use_field,
-                                                 "is_constructor": is_constructor,
-                                                 "is_get_set": is_get_set,
-                                                 "is_public": is_public})
+                        method_collection = db.get_collection("method_" + method_name)
+                        method_collection.insert_one({"project_name": project_name,
+                                                     "signature": m_sig,
+                                                     "method_name": method_name,
+                                                     "parameters": parameters,
+                                                     "source_code": source_code,
+                                                     "class_name": class_name,
+                                                     "dependencies": str(m_deps),
+                                                     "use_field": use_field,
+                                                     "is_constructor": is_constructor,
+                                                     "is_get_set": is_get_set,
+                                                     "is_public": is_public,
+                                                     "table_name": "method"})
 
                     # insert class data into table class
-                    db.insert("class", row={"project_name": project_name,
-                                            "class_name": class_name,
-                                            "class_path": class_path,
-                                            "signature": c_sig,
-                                            "super_class": super_class,
-                                            "package": package,
-                                            "imports": imports,
-                                            "fields": fields,
-                                            "has_constructor": has_constructor,
-                                            "dependencies": str(c_deps)})
+                    class_collection = db.get_collection("class_" + class_name)
+                    class_collection.insert_one({"project_name": project_name,
+                                                "class_name": class_name,
+                                                "class_path": class_path,
+                                                "signature": c_sig,
+                                                "super_class": super_class,
+                                                "package": package,
+                                                "imports": imports,
+                                                "fields": fields,
+                                                "has_constructor": has_constructor,
+                                                "dependencies": str(c_deps),
+                                                "table_name": "class"})
                     print(class_name, "FINISHED!")
 
 

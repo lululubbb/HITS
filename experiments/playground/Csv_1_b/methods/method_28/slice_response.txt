@@ -1,0 +1,14 @@
+{
+  "summarization": "The method isEmptyLinesIgnored() is a simple accessor that returns the value of the private boolean field 'emptyLinesIgnored' indicating whether empty lines are ignored in the CSV format.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "emptyLinesIgnored: boolean, private final field of the CSVFormat class, indicating if empty lines are ignored"
+  ],
+  "invoked_outside_methods": [],
+  "steps": [
+    {
+      "desp": "Return the value of the 'emptyLinesIgnored' field to indicate if empty lines are ignored",
+      "code": "return emptyLinesIgnored;"
+    }
+  ]
+}

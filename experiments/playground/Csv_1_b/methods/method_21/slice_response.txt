@@ -1,0 +1,30 @@
+{
+  "summarization": "The get(String name) method retrieves the value associated with the given header name from the CSV record. It first checks if the mapping from names to indices exists; if not, it throws an IllegalStateException. Then it looks up the index for the given name in the mapping. If the name is not found, it throws an IllegalArgumentException. Otherwise, it returns the value at the found index from the values array.",
+  "//": "Local variables defined in the focal method should not be reported.",
+  "invoked_outside_vars": [
+    "name: String, input parameter, the header name whose value is to be retrieved",
+    "mapping: Map<String, Integer>, member field of CSVRecord, mapping from header names to column indices",
+    "values: String[], member field of CSVRecord, array of values for the record"
+  ],
+  "invoked_outside_methods": [
+    "mapping.get(Object): Integer, method of Map to get the index corresponding to the header name"
+  ],
+  "steps": [
+    {
+      "desp": "Check if the mapping field is null and throw an exception if no header mapping is available",
+      "code": "if (this.mapping == null) {\n    throw new IllegalStateException(\"No header was specified, the record values can't be accessed by name\");\n}"
+    },
+    {
+      "desp": "Retrieve the index of the given header name from the mapping",
+      "code": "final Integer index = this.mapping.get(name);"
+    },
+    {
+      "desp": "Check if the retrieved index is null, indicating the header name does not exist, and throw an exception",
+      "code": "if (index == null) {\n    throw new IllegalArgumentException(\"Mapping for header '\" + name + \"' not found\");\n}"
+    },
+    {
+      "desp": "Return the value at the retrieved index from the values array",
+      "code": "return this.values[index];"
+    }
+  ]
+}

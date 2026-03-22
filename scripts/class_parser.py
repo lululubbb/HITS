@@ -1,14 +1,25 @@
 from tree_sitter import Language, Parser
+from tree_sitter_java import language as java_language
 from typing import List
+import sys
+import os
+
+# 添加项目根目录到路径
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
+
+# 导入当前项目的配置
+from utils.config import GRAMMAR_FILE, LANGUAGE
 
 
 class ClassParser():
 
     def __init__(self, grammar_file, language):
         self.content = None
-        JAVA_LANGUAGE = Language(grammar_file, language)
+        # 修复：Language 构造函数只接受一个参数（PyCapsule 对象）
+        JAVA_LANGUAGE = Language(java_language())
         self.parser = Parser()
-        self.parser.set_language(JAVA_LANGUAGE)
+        self.parser.language = JAVA_LANGUAGE
 
     def parse_file(self, file):
         """
