@@ -108,8 +108,9 @@ def remove_assertion(source_code: str) -> str:
 class CodeEditor:
     def __init__(self):
         self.parser = Parser()
-        self.JAVA_LANGUAGE = Language(tsjava.language(), "java")
-        self.parser.set_language(self.JAVA_LANGUAGE)
+        # tree-sitter Language constructor expects single PyCapsule arg
+        self.JAVA_LANGUAGE = Language(tsjava.language())
+        self.parser.language = self.JAVA_LANGUAGE
         self.logger = logging.getLogger()
 
     def change_main_cls_name(self, content: str, public_cls_name: str) -> Optional[str]:

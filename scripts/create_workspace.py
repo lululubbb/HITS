@@ -27,7 +27,7 @@ def main():
     # Create local working dir and write local meta info
     playground_root = os.path.join(playground_dir, project_name).__str__()
     put_path = os.path.join(put_root, project_name)
-    mut_names = list(db.list_collection_names())
+    mut_names = [name for name in db.list_collection_names() if name.startswith('method_')]
     method_name_to_idx = dict({})
     idx_to_method_name = dict({})
     for idx, mut_name in enumerate(mut_names):

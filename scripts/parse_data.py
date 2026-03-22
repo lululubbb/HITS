@@ -128,9 +128,17 @@ def parse_data(dir_path: str, project_name: str):
 
 
 if __name__ == '__main__':
-    print("This action will alter the information in database.")
-    confirm = input("Are you sure to parse the data? (y/n) ")
-    if confirm == "y":
-        parse_data("/Users/chenyi/Desktop/ChatTester/TestGPT_ASE/information/Lang")
+    import argparse
+    parser = argparse.ArgumentParser(description='Parse class info JSON into JsonDB')
+    parser.add_argument('dir_path', nargs='?', help='Path to class_info directory')
+    parser.add_argument('project_name', nargs='?', help='Project name')
+    args = parser.parse_args()
+    if args.dir_path and args.project_name:
+        parse_data(args.dir_path, args.project_name)
     else:
-        print("Canceled.")
+        print("This action will alter the information in database.")
+        confirm = input("Are you sure to parse the data? (y/n) ")
+        if confirm == "y":
+            parse_data("/Users/chenyi/Desktop/ChatTester/TestGPT_ASE/information/Lang", "unknown")
+        else:
+            print("Canceled.")

@@ -3,7 +3,10 @@ import logging
 import os
 from typing import Optional, List, Dict
 
-from pymongo.collection import Collection
+try:
+    from pymongo.collection import Collection
+except ImportError:
+    Collection = object
 import sys
 import os
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -6,7 +6,10 @@ import os
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 将项目根目录加入 Python 路径
 sys.path.append(PROJECT_ROOT)
-from pymongo.collection import Collection
+try:
+    from pymongo.collection import Collection
+except ImportError:
+    Collection = object
 
 from generator.open_generator import OpenGenerator
 from procedures.basic_procedure import BasicProcedure, generate_code

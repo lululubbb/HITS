@@ -51,8 +51,9 @@ def main():
     print("PUT root:", put_root)
 
     # 步骤0a: 解析项目源代码，提取类和方法信息
+    project_path = os.path.join(put_root, project_name)
     if not run_command([
-        sys.executable, "scripts/task.py", "parse", put_root
+        sys.executable, "scripts/task.py", "parse", project_path
     ], "Step 0a: Parse Project Source Code"):
         print("⚠ Step 0a failed, but continuing...")
 
@@ -60,8 +61,7 @@ def main():
     class_info_dir = os.path.join(PROJECT_ROOT, "class_info", project_name)
     if os.path.exists(class_info_dir):
         if not run_command([
-            sys.executable, "-c",
-            f"from scripts.parse_data import parse_data; parse_data('{class_info_dir}', '{project_name}')"
+            sys.executable, "scripts/parse_data.py", class_info_dir, project_name
         ], "Step 0b: Insert Parsed Data into JsonDB"):
             print("⚠ Step 0b failed, but continuing...")
     else:
