@@ -8,6 +8,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
 from tree_sitter import Language, Parser, Tree, Node
 import tree_sitter_java as tsjava
+from tree_sitter_languages import get_language
+
 from utils.config import GRAMMAR_FILE, LANGUAGE
 
 
@@ -105,12 +107,20 @@ def remove_assertion(source_code: str) -> str:
     return "\n".join(lines)
 
 
+def _make_java_language():
+    try:
+        # 直接获取预编译的 Java 语言对象，无需手动加载 .so
+        java_lang = get_language("java")
+        return java_lang
+    except Exception as e:
+        raise RuntimeError(f"加载 Java 语言库失败：{e}")
+
+
 class CodeEditor:
     def __init__(self):
         self.parser = Parser()
-        # tree-sitter Language constructor expects single PyCapsule arg
-        self.JAVA_LANGUAGE = Language(tsjava.language())
-        self.parser.language = self.JAVA_LANGUAGE
+        self.JAVA_LANGUAGE = _make_java_language()
+        self.parser.set_language(self.JAVA_LANGUAGE)
         self.logger = logging.getLogger()
 
     def change_main_cls_name(self, content: str, public_cls_name: str) -> Optional[str]:

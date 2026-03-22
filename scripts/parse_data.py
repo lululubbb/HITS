@@ -2,6 +2,9 @@
 This file is for parsing the .json data.
 And insert them into JsonDB (adapted from MySQL version).
 
+修复：支持重载方法识别 —— 改用方法签名（parameters字段）而非方法名作为 collection key，
+      避免同名重载方法互相覆盖。
+
 Author: Adapted for HITS project
 Date: 2024-03-22
 """
@@ -9,6 +12,7 @@ Date: 2024-03-22
 import json
 import os
 import sys
+import re
 
 # 添加项目根目录到路径
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +27,30 @@ def database(project_name: str):
     Get JsonDB instance for the project
     """
     return JsonDatabase(json_db_root, project_name)
+
+
+def _make_method_collection_key(method_name: str, parameters: str) -> str:
+    """
+    为方法生成唯一的 collection key，以支持重载方法。
+
+    例如：
+      method_name="read", parameters="read()"            -> "method_read__"
+      method_name="read", parameters="read(char[], int, int)" -> "method_read__char___int__int"
+
+    规则：取 parameters 中括号内的参数部分，将非字母数字字符替换为下划线，
+    拼接在方法名后，保证唯一且合法（JsonCollection key 不含空格、斜杠、引号）。
+    """
+    # 从 parameters 字段提取括号内的参数类型列表，如 "read(char[], int, int)" -> "char[], int, int"
+    match = re.search(r'\(([^)]*)\)', parameters)
+    if match:
+        param_str = match.group(1).strip()
+    else:
+        param_str = ""
+
+    # 将非字母数字字符替换为下划线，避免 JsonCollection key 中的非法字符
+    safe_param = re.sub(r'[^a-zA-Z0-9]', '_', param_str)
+
+    return f"method_{method_name}__{safe_param}"
 
 
 def parse_data(dir_path: str, project_name: str):
@@ -96,8 +124,9 @@ def parse_data(dir_path: str, project_name: str):
                                     c_deps[dep_class] = []
                                 c_deps[dep_class].append(m_deps[dep_class])
 
-                        # insert method data into table method
-                        method_collection = db.get_collection("method_" + method_name)
+                        # 修复：使用方法签名（含参数）生成唯一 collection key，支持重载方法
+                        collection_key = _make_method_collection_key(method_name, parameters)
+                        method_collection = db.get_collection(collection_key)
                         method_collection.insert_one({"project_name": project_name,
                                                      "signature": m_sig,
                                                      "method_name": method_name,
@@ -128,17 +157,9 @@ def parse_data(dir_path: str, project_name: str):
 
 
 if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description='Parse class info JSON into JsonDB')
-    parser.add_argument('dir_path', nargs='?', help='Path to class_info directory')
-    parser.add_argument('project_name', nargs='?', help='Project name')
-    args = parser.parse_args()
-    if args.dir_path and args.project_name:
-        parse_data(args.dir_path, args.project_name)
+    print("This action will alter the information in database.")
+    confirm = input("Are you sure to parse the data? (y/n) ")
+    if confirm == "y":
+        parse_data("/Users/chenyi/Desktop/ChatTester/TestGPT_ASE/information/Lang", "Lang")
     else:
-        print("This action will alter the information in database.")
-        confirm = input("Are you sure to parse the data? (y/n) ")
-        if confirm == "y":
-            parse_data("/Users/chenyi/Desktop/ChatTester/TestGPT_ASE/information/Lang", "unknown")
-        else:
-            print("Canceled.")
+        print("Canceled.")

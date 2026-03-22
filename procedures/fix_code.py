@@ -101,7 +101,18 @@ def advanced_run_check(slice_workspace, put_path, signature, package, class_name
                 file.write(f"Failed to run check for {signature}. Check details")
         else:
             for key in coverage_analysis:
-                if float(coverage_analysis[key].strip("%")) == 0:
+                coverage_str = coverage_analysis[key].strip("%").lower()  # 转小写统一判断
+                if coverage_str in ['n/a', 'na', '']:  # 兼容各种无数据的写法
+                    coverage_value = 0.0  # 无数据时默认按 0% 处理
+                else:
+                    try:
+                        coverage_value = float(coverage_str)
+                    except ValueError:
+                        # 其他非法值也默认按 0% 处理
+                        coverage_value = 0.0
+
+                # 替换原判断逻辑
+                if coverage_value == 0:
                     test_passed = False
                     with open(os.path.join(slice_workspace, "temp", "runtime_error.txt"), "w") as file:
                         file.write(f"Runtime error: {key} is 0%. The test method is not invoked")

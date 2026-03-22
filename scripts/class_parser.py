@@ -1,5 +1,4 @@
 from tree_sitter import Language, Parser
-from tree_sitter_java import language as java_language
 from typing import List
 import sys
 import os
@@ -16,10 +15,9 @@ class ClassParser():
 
     def __init__(self, grammar_file, language):
         self.content = None
-        # 修复：Language 构造函数只接受一个参数（PyCapsule 对象）
-        JAVA_LANGUAGE = Language(java_language())
+        JAVA_LANGUAGE = Language(grammar_file, language)
         self.parser = Parser()
-        self.parser.language = JAVA_LANGUAGE
+        self.parser.set_language(JAVA_LANGUAGE)
 
     def parse_file(self, file):
         """
