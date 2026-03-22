@@ -83,9 +83,9 @@ def export_data(project_name: str):
 
             for project_entry in focal_data:
                 if project_entry.get('project') == target_project:
-                    # 清理类名（移除换行符和空格）
+                    # 清理类名（移除换行符和空格），并提取简单类名
                     classes = [c.rstrip('\n').strip() for c in project_entry.get('classes', [])]
-                    focal_classes_filter = set(classes)
+                    focal_classes_filter = set(c.split('.')[-1] for c in classes)
                     print(f"✓ 检测到 defects4j 项目，已加载 {len(focal_classes_filter)} 个 focal classes")
                     print(f"  Focal classes: {focal_classes_filter}")
                     break

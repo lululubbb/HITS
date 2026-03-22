@@ -58,8 +58,8 @@ def main():
     def thread_init_generation(_method_to_test):
         if args.fixing:
             _code_getter = get_code.InitialCodeGenerator(prompt_root,
-                                                         "system_gen.jinja2",
-                                                         "gen_patch.jinja2")
+                                                         "system_repair.jinja2",
+                                                         "repair.jinja2")
         else:
             _code_getter = get_code.InitialCodeGenerator(prompt_root,
                                                          "system_gen.jinja2",
