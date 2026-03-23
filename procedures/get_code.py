@@ -60,6 +60,7 @@ class InitialCodeGenerator(BasicProcedure):
 
         for generate_trial in range(5):
             temperature = init_temp if generate_trial == 0 else 0.5
+            logger.info(f"[GEN] Trial {generate_trial+1}/5: Generating code with temperature={temperature}")
             response_0 = chatter.generate(self.generate_template.render(direction_3),
                                           self.system_template.render(),
                                           temperature=temperature)
@@ -76,12 +77,13 @@ class InitialCodeGenerator(BasicProcedure):
                     tests_by_condition = []
                     logger.warning(f"No valid public class for {log_dir} step {step_id} trial {generate_trial}")
                 else:
+                    logger.info(f"[GEN] SUCCESS: Generated {len(tests_by_condition)} test cases at trial {generate_trial+1}")
                     break
             else:
                 if not has_code:
-                    logger.warning(f"No code for {log_dir} step {step_id} trial {generate_trial}")
+                    logger.debug(f"No code for {log_dir} step {step_id} trial {generate_trial}")
                 if has_syntactic_error:
-                    logger.warning(f"Syntactic error for {log_dir} step {step_id} trial {generate_trial}")
+                    logger.debug(f"Syntactic error for {log_dir} step {step_id} trial {generate_trial}")
                 tests_by_condition = []
 
         if isinstance(step_id, int):
@@ -138,11 +140,6 @@ class InitialCodeGenerator(BasicProcedure):
         info:        Dict = collection.find_one({"table_name": "info"})
         assert direction_3 is not None
         assert direction_1 is not None
-        assert info        is not None
-
-        if addon_info is None:
-            addon_info = {}
-            self.logger.warning(f"No add_info found for {collection}; entering no-slice fallback")
 
         if not isinstance(addon_info, dict):
             self.logger.error(f"add_info is not dict for {collection}; fallback to empty steps")
@@ -209,6 +206,9 @@ class InitialCodeGenerator(BasicProcedure):
             slices_to_fix = []
             with open(slice_info_path, 'r') as file:
                 slices_to_fix = [json.loads(line) for line in file.read().strip().split("\n")]
+            if not info or 'method_graphs' not in info:
+                self.logger.error("No method_graphs in info for fixing mode")
+                return None
             method_lines = info['method_graphs'][0]['src_lines']
 
             def _build_line(_line_map, _line_no):

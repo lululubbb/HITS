@@ -164,6 +164,8 @@ class TestFixer(BasicProcedure):
         test_fixed = False
         init_temperature = 0.0
 
+        self.logger.info(f"[FIX] Starting fix for test: {unitest_failed}, max_trial={max_trial}")
+
         if os.path.exists(os.path.join(unitest_root.__str__(),
                                         f"{unitest_failed}.condition.txt")):
             with open(os.path.join(unitest_root.__str__(),
@@ -174,6 +176,7 @@ class TestFixer(BasicProcedure):
 
         src_trial = start_trial_to_fix
         for tgt_trial in range(start_trial_to_fix + 1, max_trial + 1):
+            self.logger.info(f"[FIX] Trial {tgt_trial}/{max_trial} for {unitest_failed}")
             src_trial_workspace = os.path.join(unitest_root.__str__(), str(src_trial))
             tgt_trial_workspace = os.path.join(unitest_root.__str__(), str(tgt_trial))
 
@@ -245,8 +248,13 @@ class TestFixer(BasicProcedure):
                 raw_info['class_name'])
 
             if test_fixed:
+                self.logger.info(f"[FIX] SUCCESS: {unitest_failed} fixed at trial {tgt_trial}")
                 break
+            else:
+                self.logger.debug(f"[FIX] Trial {tgt_trial} failed for {unitest_failed}")
             init_temperature = 0.4 if extracted_code.strip() == unitest_to_fix.strip() else 0.0
             src_trial = tgt_trial
 
+        if not test_fixed:
+            self.logger.warning(f"[FIX] FAILED: {unitest_failed} not fixed after {max_trial} trials")
         return test_fixed

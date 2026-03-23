@@ -67,7 +67,9 @@ def single_method_report(method_experiment_root, collection: Collection, put_pat
 
     # get located module
     info = collection.find_one({"table_name": "info"})
-    assert info is not None
+    if info is None:
+        logging.warning(f"No 'info' record found in collection for {method_experiment_root}")
+        return None
     class_path = os.path.join(os.path.abspath(put_path), info['class_path'])
     target_src_root = None
     for pom_path in module_poms:
@@ -77,22 +79,42 @@ def single_method_report(method_experiment_root, collection: Collection, put_pat
     if target_src_root is None:
         logging.warning(f"Found no target src root for {method_experiment_root}")
 
+    logging.info(f"[REPORT] Generating JaCoCo report: exec_paths={len(exec_paths)}, target_class_paths={len(target_class_paths)}")
     report_order = ["java", "-jar", jacoco_cli_path, "report"] + exec_paths
     for path in target_class_paths:
         report_order += ['--classfiles', path]
     report_order += ['--html', output_root]
     if target_src_root is not None:
         report_order += ['--sourcefiles', target_src_root]
+    logging.debug(f"JaCoCo command: {' '.join(report_order)}")
     report = subprocess.run(report_order, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return report.stderr.decode().strip() == ""
+    success = report.stderr.decode().strip() == ""
+    if not success:
+        logging.warning(f"JaCoCo report generation failed: {report.stderr.decode()}")
+    logging.info(f"[REPORT] JaCoCo report generated: {output_root}")
+    return success
 
 
 def single_method_analyse(log_dir, collection: Collection) -> Optional[Dict]:
     # analyse the report
-    assert os.path.exists(log_dir)
-    assert os.path.exists(os.path.join(log_dir, "full_report"))
+    if not os.path.exists(log_dir):
+        logging.warning(f"Log dir does not exist: {log_dir}")
+        return None
+    
+    full_report_dir = os.path.join(log_dir, "full_report")
+    if not os.path.exists(full_report_dir):
+        logging.warning(f"full_report dir does not exist: {full_report_dir}")
+        return None
+    
+    # Check if full_report has any content
+    if not os.listdir(full_report_dir):
+        logging.warning(f"full_report dir is empty: {full_report_dir}")
+        return None
+    
     raw_info = collection.find_one({"table_name": "raw_data"})
-    assert raw_info is not None
+    if raw_info is None:
+        logging.warning(f"No 'raw_data' record found in collection for {log_dir}")
+        return None
 
     signature = raw_info['parameters']
     package = raw_info['package'].replace("package ", "").replace(";", "")
@@ -104,7 +126,10 @@ def single_method_analyse(log_dir, collection: Collection) -> Optional[Dict]:
                                           class_name,
                                           signature)
     except FileNotFoundError as e:
-        traceback.print_exception(e)
+        logging.warning(f"HTML file not found for {package}.{class_name}: {e}")
+        coverage_result = None
+    except Exception as e:
+        logging.warning(f"Error analyzing coverage for {package}.{class_name}: {e}")
         coverage_result = None
 
     if coverage_result is None:

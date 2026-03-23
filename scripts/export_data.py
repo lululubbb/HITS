@@ -188,6 +188,13 @@ def export_data(project_name: str):
             json.dump(json_data, f)
         print(save_name, "direction_1 success!")
 
+        # Insert direction_1 into collection
+        json_data['table_name'] = 'direction_1'
+        if collection.find_one({"table_name": "direction_1"}) is not None:
+            collection.replace_one({"table_name": "direction_1"}, json_data)
+        else:
+            collection.insert_one(json_data)
+
         # Direction 3: imports + fc + c + f + fm + m AND + c_deps + m_deps
         direction_3 = {"c_deps": {}, "m_deps": {}, "full_fm": "", "focal_method": m_sig,
                        "class_name": class_name}
@@ -219,6 +226,13 @@ def export_data(project_name: str):
             json.dump(direction_3, f)
         print(save_name, "direction_3 success!")
 
+        # Insert direction_3 into collection
+        direction_3['table_name'] = 'direction_3'
+        if collection.find_one({"table_name": "direction_3"}) is not None:
+            collection.replace_one({"table_name": "direction_3"}, direction_3)
+        else:
+            collection.insert_one(direction_3)
+
         # Raw data
         raw_data = {
             "id": method_id,
@@ -240,6 +254,13 @@ def export_data(project_name: str):
         with open(os.path.join(dataset_path, "raw_data", save_name), "w") as f:
             json.dump(raw_data, f)
         print(save_name, "raw_data success!")
+
+        # Insert raw_data into collection
+        raw_data['table_name'] = 'raw_data'
+        if collection.find_one({"table_name": "raw_data"}) is not None:
+            collection.replace_one({"table_name": "raw_data"}, raw_data)
+        else:
+            collection.insert_one(raw_data)
 
         method_id += 1
 

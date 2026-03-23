@@ -31,9 +31,6 @@ class SliceInfoGenerator(BasicProcedure):
         :param collection: the MongoDB collection for the method to test
         :return: If the generation is success, return the corresponding JSON; otherwise, None
         """
-        # assert os.path.exists(log_dir)
-        # with open(os.path.join(log_dir, 'direction_3.json'), "r") as file:
-        #     direction_3 = json.load(file)
         direction_3 = collection.find_one({"table_name": "direction_3"})
         assert direction_3 is not None
 

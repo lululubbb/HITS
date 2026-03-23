@@ -424,3 +424,61 @@ jupyter nbconvert --to notebook --execute scripts/report.ipynb
             └── com.example.pkg/
                 └── ClassName.html
 ```
+
+完整流程指令
+阶段一：数据准备与工作区初始化
+bashcd /home/chenlu/HITS
+
+# 步骤 0a-0d：解析源码、写入 JsonDB、导出数据集、初始化工作区
+python scripts/run_pipeline.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects \
+    --steps 0
+阶段二：有分片模式（推荐）
+bash# 步骤 1：生成方法分片
+python scripts/run_pipeline.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects \
+    --steps 1
+
+# 步骤 2-3：生成 + 编译运行 + 修复测试
+python scripts/run_pipeline.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects \
+    --steps 2 3
+
+# 步骤 6：生成覆盖率报告
+python scripts/run_pipeline.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects \
+    --steps 6
+阶段二（备选）：无分片模式
+bashpython scripts/run_pipeline.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects \
+    --wo_slice \
+    --steps 2 3 6
+阶段三（可选）：补丁生成（需先完成 Step 4）
+bash# Step 4：解析覆盖缺口
+python scripts/run_pipeline.py ... --steps 4
+
+# 运行 Java Slicer（外部工具）读取 slicing_tasks.txt
+# java -jar slicer.jar ...
+
+# Step 5：生成补丁测试（--fixing 标志）
+python scripts/run_pipeline.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects \
+    --fixing \
+    --steps 5
+阶段四：评估（Bug-Revealing + 相似度 + 统计）
+bash# 评估单个项目
+python scripts/run_evaluation.py \
+    --project_name Csv_1_b \
+    --put_root /home/chenlu/HITS/defect4j_projects
+
+# 批量评估所有 Csv*_b 项目
+python scripts/run_evaluation.py \
+    --all \
+    --put_root /home/chenlu/HITS/defect4j_projects
+评估完成后，统计文件写在 playground/<project>/stats/ 下：llm_calls.csv、llm_summary.csv（LLM token/时间）、test_results.csv、test_summary.csv（编译率/执行率/覆盖率/bug-revealing/冗余度）。
