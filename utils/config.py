@@ -80,7 +80,7 @@ WO_SLICE_TEST_COUNT: int = _get_int("DEFAULT", "WO_SLICE_TEST_COUNT", 5)
 MAX_REPAIR_TRIALS: int = _get_int("DEFAULT", "MAX_REPAIR_TRIALS", 10)
 
 # run_all_tests 循环中 per-method 测试用例数量（原 test_number）
-TEST_NUMBER: int = _get_int("DEFAULT", "TEST_NUMBER", 5)
+test_number: int = _get_int("DEFAULT", "TEST_NUMBER", 5)
 
 # dataset 目录（export_data 使用）；空字符串 = 由 playground 自动推断
 _raw_dataset_dir = config.get("DEFAULT", "DATASET_DIR",

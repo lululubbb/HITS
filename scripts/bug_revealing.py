@@ -19,7 +19,6 @@ Behavior summary:
 
 Note: This script favors correctness and simplicity using Maven runs per test. It is slower but robust across projects.
 """
-
 import argparse
 import os
 import re
@@ -31,13 +30,16 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import urllib.parse
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
+
 here_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(here_dir, '..'))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from test_runner import TestRunner
-from config import JUNIT_JAR, MOCKITO_JAR, LOG4J_JAR
+from utils import test_runner
+from utils.config import JUNIT_JAR, MOCKITO_JAR, LOG4J_JAR
 
 
 def find_newest_tests_dir(project_root):

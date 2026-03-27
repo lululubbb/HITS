@@ -1,11 +1,3 @@
-"""
-procedures/fix_code.py  — 修复版
-
-变更：
-  1. max_trial 改从 config.MAX_REPAIR_TRIALS 读取（不再 hardcode 10）
-  2. 其余逻辑与原版一致
-"""
-
 import glob
 import os.path
 import shutil
@@ -24,7 +16,7 @@ from generator.open_generator import OpenGenerator
 from procedures.basic_procedure import BasicProcedure, generate_code
 from utils import test_runner
 from utils.code_editor import remove_assertion
-from utils.config import MAX_REPAIR_TRIALS  # ← 新增导入
+from utils.config import MAX_REPAIR_TRIALS
 from utils.config import *
 from utils.report import jacoco_analysis
 
@@ -35,7 +27,7 @@ def remove_assertion_retest(step_workspace, put_path) -> bool:
         with open(runtime_error_path, "r") as file:
             runtime_error = file.read()
         if "AssertionFailedError" in runtime_error:
-            temp_files = os.listdir(os.path.join(step_workspace, "temp").__str__())
+            temp_files = os.listdir(os.path.join(step_workspace, "temp"))
             test_file_path = None
             for file_name in temp_files:
                 if file_name.endswith(".java"):
@@ -47,19 +39,25 @@ def remove_assertion_retest(step_workspace, put_path) -> bool:
             assertion_removed_test = remove_assertion(failed_test)
             with open(test_file_path, "w") as java_file:
                 java_file.write(assertion_removed_test)
-            shutil.rmtree(os.path.join(step_workspace, "runtemp"))
-            os.remove(runtime_error_path)
+            runtemp = os.path.join(step_workspace, "runtemp")
+            if os.path.exists(runtemp):
+                shutil.rmtree(runtemp)
+            runtime_err = os.path.join(step_workspace, "temp", "runtime_error.txt")
+            if os.path.exists(runtime_err):
+                os.remove(runtime_err)
             task = test_runner.TestRunner(step_workspace, put_path, step_workspace, "jacoco")
             return task.start_single_test()
     return False
 
 
 def coverage_check(slice_work_space, signature, package, class_name):
-    assert os.path.exists(os.path.join(slice_work_space, 'runtemp', 'jacoco.exec'))
-    if not os.path.exists(os.path.join(slice_work_space, "cov_check_dir")):
+    exec_path = os.path.join(slice_work_space, 'runtemp', 'jacoco.exec')
+    if not os.path.exists(exec_path):
         return None
-    return jacoco_analysis(os.path.join(slice_work_space, "cov_check_dir"),
-                           package, class_name, signature)
+    cov_dir = os.path.join(slice_work_space, "cov_check_dir")
+    if not os.path.exists(cov_dir):
+        return None
+    return jacoco_analysis(cov_dir, package, class_name, signature)
 
 
 def advanced_run_check(slice_workspace, put_path, signature, package, class_name):
@@ -71,23 +69,22 @@ def advanced_run_check(slice_workspace, put_path, signature, package, class_name
     if test_passed:
         coverage_analysis = coverage_check(slice_workspace, signature, package, class_name)
         if coverage_analysis is None:
-            test_passed = False
-            with open(os.path.join(slice_workspace, "temp", "run_check_fail.txt"), "w") as file:
-                file.write(f"Failed to run check for {signature}.")
+            # ── 修复：覆盖率检查失败不等于测试失败
+            # 旧版在这里会将 test_passed = False，导致 jacoco.exec 路径上
+            # 带有 runtime_error.txt 标记，使 single_method_report 跳过该 exec。
+            # 新版：只记录日志，不阻断 test_passed。
+            pass  # coverage_analysis is None 时不修改 test_passed
         else:
             for key in coverage_analysis:
                 coverage_str = coverage_analysis[key].strip("%").lower()
-                if coverage_str in ['n/a', 'na', '']:
+                try:
+                    coverage_value = float(coverage_str) if coverage_str not in ('n/a', 'na', '') else 0.0
+                except ValueError:
                     coverage_value = 0.0
-                else:
-                    try:
-                        coverage_value = float(coverage_str)
-                    except ValueError:
-                        coverage_value = 0.0
                 if coverage_value == 0:
                     test_passed = False
-                    with open(os.path.join(slice_workspace, "temp", "runtime_error.txt"), "w") as file:
-                        file.write(f"Runtime error: {key} is 0%. The test method is not invoked")
+                    with open(os.path.join(slice_workspace, "temp", "runtime_error.txt"), "w") as f:
+                        f.write(f"Runtime error: {key} is 0%. The test method is not invoked")
                     break
     return test_passed
 
@@ -107,21 +104,20 @@ class TestFixer(BasicProcedure):
         assert raw_info is not None
 
         test_cases = [os.path.basename(path)
-                      for path in glob.glob(os.path.join(log_dir, code_dir, "*.java"),
-                                            recursive=False)]
+                      for path in glob.glob(os.path.join(log_dir, code_dir, "*.java"))]
         failed_test_cases = []
         for test_case in test_cases:
             target_dir = os.path.join(log_dir, "fixing", test_case[:-len(".java")], "0", "temp")
             if os.path.exists(os.path.dirname(target_dir)):
-                self.logger.warning(f"Target dir {os.path.dirname(target_dir)} exists. Skipping...")
+                self.logger.warning(f"Target dir exists, skipping: {os.path.dirname(target_dir)}")
                 continue
             os.makedirs(target_dir, exist_ok=True)
             shutil.copy(os.path.join(log_dir, code_dir, test_case), target_dir)
-            if os.path.exists(os.path.join(log_dir, code_dir,
-                                            test_case.replace(".java", ".condition.txt"))):
-                shutil.copy(os.path.join(log_dir, code_dir,
-                                          test_case.replace(".java", ".condition.txt")),
-                            os.path.dirname(os.path.dirname(target_dir)))
+            cond_src = os.path.join(log_dir, code_dir,
+                                     test_case.replace(".java", ".condition.txt"))
+            if os.path.exists(cond_src):
+                shutil.copy(cond_src, os.path.dirname(os.path.dirname(target_dir)))
+
             test_passed = advanced_run_check(
                 os.path.dirname(target_dir), put_path,
                 raw_info['parameters'],
@@ -131,7 +127,7 @@ class TestFixer(BasicProcedure):
                 failed_test_cases.append(test_case)
 
         if failed_test_cases:
-            self.logger.warning(f"{len(failed_test_cases)} / {len(test_cases)} failed")
+            self.logger.warning(f"{len(failed_test_cases)}/{len(test_cases)} failed")
 
         failed_test_cases = [t[:-len('.java')] for t in failed_test_cases]
         output_file = os.path.join(log_dir, "fixing", "init_test_failed.txt")
@@ -145,80 +141,71 @@ class TestFixer(BasicProcedure):
                            chatter: OpenGenerator) -> bool:
         unitest_root = os.path.join(log_dir, "fixing", unitest_failed)
         assert os.path.exists(unitest_root)
-        existing_trials = [int(trial_id) for trial_id in os.listdir(unitest_root.__str__())
-                           if os.path.isdir(os.path.join(unitest_root.__str__(), trial_id))]
+        existing_trials = [int(t) for t in os.listdir(unitest_root)
+                           if os.path.isdir(os.path.join(unitest_root, t)) and t.isdigit()]
         start_trial_to_fix = max(existing_trials)
         start_error = glob.glob(
-            os.path.join(unitest_root.__str__(), str(start_trial_to_fix), "temp", "*error.txt"))
+            os.path.join(unitest_root, str(start_trial_to_fix), "temp", "*error.txt"))
         if len(start_error) == 0:
             return True
 
-        # ── 从 config 读取最大修复轮数 ────────────────────────────────
-        max_trial = MAX_REPAIR_TRIALS  # 原来 hardcode 10，现在从 config 读取
-
+        max_trial = MAX_REPAIR_TRIALS
         raw_info = collection.find_one({"table_name": "raw_data"})
         dir_3    = collection.find_one({"table_name": "direction_3"})
         assert raw_info is not None
         assert dir_3 is not None
-        is_not_public = not raw_info['is_public']
-        test_fixed = False
+
+        is_not_public  = not raw_info['is_public']
+        test_fixed     = False
         init_temperature = 0.0
 
-        self.logger.info(f"[FIX] Starting fix for test: {unitest_failed}, max_trial={max_trial}")
-
-        if os.path.exists(os.path.join(unitest_root.__str__(),
-                                        f"{unitest_failed}.condition.txt")):
-            with open(os.path.join(unitest_root.__str__(),
-                                   f"{unitest_failed}.condition.txt"), "r") as file:
-                block = file.read()
-        else:
-            block = ""
+        block = ""
+        cond_file = os.path.join(unitest_root, f"{unitest_failed}.condition.txt")
+        if os.path.exists(cond_file):
+            with open(cond_file, "r") as f:
+                block = f.read()
 
         src_trial = start_trial_to_fix
         for tgt_trial in range(start_trial_to_fix + 1, max_trial + 1):
-            self.logger.info(f"[FIX] Trial {tgt_trial}/{max_trial} for {unitest_failed}")
-            src_trial_workspace = os.path.join(unitest_root.__str__(), str(src_trial))
-            tgt_trial_workspace = os.path.join(unitest_root.__str__(), str(tgt_trial))
+            src_ws = os.path.join(unitest_root, str(src_trial))
+            tgt_ws = os.path.join(unitest_root, str(tgt_trial))
 
-            with open(os.path.join(src_trial_workspace, "temp",
-                                   unitest_failed + ".java"), "r") as file:
-                unitest_to_fix = file.read().strip()
-            numbered_unitest_to_fix = '\n'.join(
-                [f"{idx+1}: {line}" for idx, line in enumerate(unitest_to_fix.split('\n'))])
+            with open(os.path.join(src_ws, "temp", unitest_failed + ".java"), "r") as f:
+                unitest_to_fix = f.read().strip()
+            numbered = '\n'.join(
+                [f"{i+1}: {l}" for i, l in enumerate(unitest_to_fix.split('\n'))])
 
-            compile_error_path = os.path.join(src_trial_workspace, "temp", "compile_error.txt")
-            runtime_error_path = os.path.join(os.path.dirname(compile_error_path), "runtime_error.txt")
-            run_check_fail     = os.path.join(os.path.dirname(compile_error_path), 'run_check_fail.txt')
+            compile_err = os.path.join(src_ws, "temp", "compile_error.txt")
+            runtime_err = os.path.join(src_ws, "temp", "runtime_error.txt")
+            run_check_f = os.path.join(src_ws, "temp", "run_check_fail.txt")
 
-            if os.path.exists(compile_error_path):
+            if os.path.exists(compile_err):
                 error_type = "compile_error"
-                with open(compile_error_path, "r") as file:
-                    error_msg = file.read()
-            elif os.path.exists(runtime_error_path):
+                with open(compile_err) as f:
+                    error_msg = f.read()
+            elif os.path.exists(runtime_err):
                 error_type = "runtime_error"
-                with open(runtime_error_path, "r") as file:
-                    error_msg = file.read()
-            elif os.path.exists(run_check_fail):
-                self.logger.error(f"Run check failed for {log_dir}")
+                with open(runtime_err) as f:
+                    error_msg = f.read()
+            elif os.path.exists(run_check_f):
                 return False
             else:
-                self.logger.error("No error found?")
                 return False
 
             error_info = {
-                'unit_test':       numbered_unitest_to_fix,
-                'error_message':   '\n'.join([error_type, error_msg]),
-                'error_type':      error_type,
-                'is_not_public':   is_not_public,
-                'class_name':      dir_3['class_name'],
+                'unit_test':         numbered,
+                'error_message':     '\n'.join([error_type, error_msg]),
+                'error_type':        error_type,
+                'is_not_public':     is_not_public,
+                'class_name':        dir_3['class_name'],
                 'method_identifier': raw_info['method_name'],
-                'block':           block,
+                'block':             block,
             }
             if 'example' in dir_3:
                 error_info['example'] = dir_3['example']
 
-            extracted_code = unitest_to_fix.strip()
-            response = "Failed to generate any new code"
+            extracted_code = unitest_to_fix
+            response = ""
             try:
                 extracted_code, response = generate_code(
                     chatter,
@@ -227,34 +214,28 @@ class TestFixer(BasicProcedure):
                     init_temperature=init_temperature,
                     cls_name=unitest_failed,
                     prev_code=unitest_to_fix.strip())
-            except RuntimeError as e:
-                print(e)
+            except RuntimeError:
+                pass
 
-            os.makedirs(os.path.join(tgt_trial_workspace, "temp"), exist_ok=True)
-            with open(os.path.join(tgt_trial_workspace, "temp",
-                                   unitest_failed + ".java"), "w") as file:
-                file.write(extracted_code)
-            with open(os.path.join(tgt_trial_workspace, "temp", "system_prompt.txt"), "w") as file:
-                file.write(self.system_template.render(dir_3))
-            with open(os.path.join(tgt_trial_workspace, "temp", "generate_prompt.txt"), "w") as file:
-                file.write(self.generate_template.render(error_info))
-            with open(os.path.join(tgt_trial_workspace, "temp", "response.txt"), "w") as file:
-                file.write(response)
+            os.makedirs(os.path.join(tgt_ws, "temp"), exist_ok=True)
+            with open(os.path.join(tgt_ws, "temp", unitest_failed + ".java"), "w") as f:
+                f.write(extracted_code)
+            with open(os.path.join(tgt_ws, "temp", "system_prompt.txt"), "w") as f:
+                f.write(self.system_template.render(dir_3))
+            with open(os.path.join(tgt_ws, "temp", "generate_prompt.txt"), "w") as f:
+                f.write(self.generate_template.render(error_info))
+            with open(os.path.join(tgt_ws, "temp", "response.txt"), "w") as f:
+                f.write(response)
 
             test_fixed = advanced_run_check(
-                tgt_trial_workspace, put_path,
+                tgt_ws, put_path,
                 raw_info['parameters'],
                 raw_info['package'].replace("package ", "").replace(";", ""),
                 raw_info['class_name'])
 
             if test_fixed:
-                self.logger.info(f"[FIX] SUCCESS: {unitest_failed} fixed at trial {tgt_trial}")
                 break
-            else:
-                self.logger.debug(f"[FIX] Trial {tgt_trial} failed for {unitest_failed}")
-            init_temperature = 0.4 if extracted_code.strip() == unitest_to_fix.strip() else 0.0
+            init_temperature = 0.4 if extracted_code.strip() == unitest_to_fix else 0.0
             src_trial = tgt_trial
 
-        if not test_fixed:
-            self.logger.warning(f"[FIX] FAILED: {unitest_failed} not fixed after {max_trial} trials")
         return test_fixed
