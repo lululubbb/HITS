@@ -34,6 +34,12 @@ class InitialCodeGenerator(BasicProcedure):
             prompt_root, system_template_file_name,
             init_code_generate_template_file_name, "init_code_generator")
         self.code_editor = CodeEditor()
+        # 确保logger可以输出INFO级别
+        self.logger.setLevel(logging.INFO)
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(message)s'))
+            self.logger.addHandler(handler)
 
     def generate_code(self, direction_3, step_id, chatter, log_dir,
                       init_temp=0.0, capacity=None):
@@ -61,6 +67,7 @@ class InitialCodeGenerator(BasicProcedure):
         for generate_trial in range(5):
             temperature = init_temp if generate_trial == 0 else 0.5
             logger.info(f"[GEN] Trial {generate_trial+1}/5: Generating code with temperature={temperature}")
+            logger.info(f"▶ [{generate_trial+1}/5] 生成 Test #{generate_trial+1}")
             response_0 = chatter.generate(self.generate_template.render(direction_3),
                                           self.system_template.render(),
                                           temperature=temperature)
@@ -168,7 +175,9 @@ class InitialCodeGenerator(BasicProcedure):
                     self.logger.warning("No slices available in add_info; falling back to wo_slice style generation")
                     _target = WO_SLICE_TEST_COUNT
                     _round = 0
+                    self.logger.info(f"▶ Phase 1: 生成测试用例 (wo_slice)")
                     while len(unit_tests) < _target:
+                        self.logger.info(f"▶ [{_round+1}/{_target}] 生成 Test #{_round+1}")
                         self.logger.info(f"Generating init unit test round {_round + 1} (fallback wo_slice)")
                         remaining = _target - len(unit_tests)
                         direction_3['step_id'] = _round
@@ -180,6 +189,8 @@ class InitialCodeGenerator(BasicProcedure):
                     unit_tests = unit_tests[:_target]
                 else:
                     for i in range(len(direction_3['steps'])):
+                        self.logger.info(f"▶ Phase 1: 生成测试用例")
+                        self.logger.info(f"▶ [{i+1}/{len(direction_3['steps'])}] 生成 Test #{i+1}")
                         self.logger.info(f"Generating init unit test for slice {i + 1}")
                         direction_3['step_id'] = i
                         unit_tests += self.generate_code(direction_3, str(i), chatter,
@@ -188,7 +199,9 @@ class InitialCodeGenerator(BasicProcedure):
                 # wo_slice 模式：fix_num <= 0 时回落到 config 值
                 _target = fix_num if fix_num > 0 else WO_SLICE_TEST_COUNT
                 _round = 0
+                self.logger.info(f"▶ Phase 1: 生成测试用例 (wo_slice)")
                 while len(unit_tests) < _target:
+                    self.logger.info(f"▶ [{_round+1}/{_target}] 生成 Test #{_round+1}")
                     self.logger.info(f"Generating init unit test round {_round + 1}")
                     remaining = _target - len(unit_tests)
                     direction_3['step_id'] = _round
@@ -214,6 +227,7 @@ class InitialCodeGenerator(BasicProcedure):
             def _build_line(_line_map, _line_no):
                 return f"{_line_no}:{_line_map[str(_line_no)]}" if str(_line_no) in _line_map else ""
 
+            self.logger.info(f"▶ Phase 1: 生成修复测试用例")
             for idx, slice_to_fix in enumerate(slices_to_fix):
                 missing_lines     = [_build_line(method_lines, i) for i in slice_to_fix['missing_lines']]
                 condition         = _build_line(method_lines, slice_to_fix['slicing_criteria'][0])
@@ -230,6 +244,7 @@ class InitialCodeGenerator(BasicProcedure):
                 direction_3['data_slicers']      = '\n'.join(data_slicers)
                 direction_3['ctl_dep']           = '\n'.join(ctl_dependencies)
                 direction_3['numbered_fm']       = '\n'.join(numbered_fm)
+                self.logger.info(f"▶ [{idx+1}/{len(slices_to_fix)}] 生成 Test #{idx+1}")
                 self.logger.info(f"Generating fixing unit test for slice {idx}")
                 unit_tests += self.generate_code(direction_3, f"Fix{idx}", chatter,
                                                   os.path.join(log_dir, "slice_fixing"))

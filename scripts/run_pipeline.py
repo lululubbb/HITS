@@ -16,6 +16,7 @@ scripts/run_pipeline.py — HITS 统一 Pipeline
 """
 
 import argparse
+import csv
 import json
 import os
 import sys
@@ -346,36 +347,75 @@ def step_4(project_name, meta, method_workspaces_prefix, log: PipelineLogger):
 # ══════════════════════════════════════════════════════════════════════════════
 def step_6(project_name, meta, method_workspaces_prefix, log: PipelineLogger,
            test_tracker=None):
-    from importlib import reload
-    reload(report_module); reload(utils.report)
+    from utils.test_runner import TestRunner
     n = len(meta['method_name_to_idx'])
     log.step_start(6, total=n)
-    db = JsonDatabase(json_db_root, project_name)
     cov_result = []
-    for m in meta['method_name_to_idx']:
-        log_dir = os.path.join(playground_dir, project_name, method_workspaces_prefix,
-                               meta['method_name_to_idx'][m])
-        coll = db.get_collection(m)
+
+    for idx, (m, method_idx) in enumerate(meta['method_name_to_idx'].items(), start=1):
+        method_root = os.path.join(playground_dir, project_name,
+                                   method_workspaces_prefix, method_idx)
+        log.info(f"  ▶ Step 6 [{idx}/{n}] focal method={m} dir={method_root}")
+
+        if not os.path.isdir(method_root):
+            log.warning(f"Method root not found: {method_root}")
+            continue
+
+        logs_dir = os.path.join(method_root, 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
+        runner = TestRunner(method_root, meta['put_path'], output_path=method_root,
+                            tool='jacoco', debug=False)
+
         try:
-            report_module.single_method_report(log_dir, coll, meta['put_path'],
-                                               JACOCO_CLI, src_dir='src/main')
-        except Exception:
-            pass
-        try:
-            res = report_module.single_method_analyse(log_dir, coll)
-            if res:
-                cov_result.append(res)
-                if test_tracker:
-                    for key, cov in res.items():
-                        try:
-                            test_tracker.add_coverage(
-                                m,
-                                float(cov.get('inst_cov', '0%').rstrip('%')),
-                                float(cov.get('bran_cov', '0%').rstrip('%')))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
+            runner_log = runner._make_logs(logs_dir)
+            runner.run_all_tests(
+                method_root,
+                compiled_test_dir=os.path.join(method_root, 'runtemp'),
+                compiler_output=os.path.join(method_root, 'compiler_output'),
+                test_output=os.path.join(method_root, 'test_output'),
+                report_dir=os.path.join(method_root, 'report'),
+                logs=runner_log
+            )
+        except Exception as e:
+            log.warning(f"TestRunner failed for {m}: {e}")
+            continue
+
+        # read the per-method coverage summary written by TestRunner
+        cov_csv_patterns = glob.glob(os.path.join(method_root, f"{project_name.replace('.', '')}_*_coverage.csv"))
+        line_rate = None
+        branch_rate = None
+        inst_cov = '0%'
+        bran_cov = '0%'
+
+        for cov_csv in cov_csv_patterns:
+            try:
+                with open(cov_csv, newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('project') == project_name:
+                            if row.get('line_rate'):
+                                line_rate = float(row.get('line_rate', 0))
+                            if row.get('branch_rate'):
+                                branch_rate = float(row.get('branch_rate', 0))
+                            if line_rate is not None:
+                                inst_cov = f"{line_rate}%"
+                            if branch_rate is not None:
+                                bran_cov = f"{branch_rate}%"
+                            break
+            except Exception:
+                continue
+            if line_rate is not None or branch_rate is not None:
+                break
+
+        cov_result.append({m: {'inst_cov': inst_cov, 'bran_cov': bran_cov}})
+
+        if test_tracker and (line_rate is not None or branch_rate is not None):
+            try:
+                test_tracker.add_coverage(m,
+                                          float(line_rate or 0),
+                                          float(branch_rate or 0))
+            except Exception:
+                pass
 
     result_file = os.path.join(playground_dir, project_name, 'result.json')
     with open(result_file, 'w') as f:
@@ -390,7 +430,7 @@ def step_6(project_name, meta, method_workspaces_prefix, log: PipelineLogger,
         avg_bran = round(sum(bran_vals) / len(bran_vals), 1) if bran_vals else 0
         log.step_done(6, f"avg line={avg_inst}%  branch={avg_bran}%")
     else:
-        log.step_done(6, "no coverage data (check jacoco.exec)")
+        log.step_done(6, "no coverage data (check test_runner outputs)")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -504,11 +544,31 @@ def main():
 
     # ── Final summary ─────────────────────────────────────────────────────────
     sm = llm_tracker.summary()
+    ts = test_tracker.summary()
     log.separator()
     log.info(f"Pipeline complete  →  {project_name}")
+
+    if ts.get('total') is not None:
+        total_tasks = ts.get('total')
+        log.info(f"Tasks: {total_tasks}/{total_tasks}")
+        log.info(f"Compile pass: {ts.get('compile_pass', 0)}/{total_tasks}")
+        log.info(f"Exec pass: {ts.get('exec_pass', 0)}/{total_tasks}")
+
     if sm.get('total_calls'):
-        log.info(f"LLM calls: {sm['total_calls']}  tokens: {sm['total_tokens']}  "
-                 f"time: {sm['total_elapsed_sec']:.0f}s")
+        total_calls = sm['total_calls']
+        total_tokens = sm['total_tokens']
+        total_prompt = sm['total_prompt_tokens']
+        total_completion = sm['total_completion_tokens']
+        total_time = sm['total_elapsed_sec']
+        avg_time = round(total_time/total_calls, 4) if total_calls else 0
+        log.info(f"Wall-clock: {total_time:.4f}s")
+        log.info(f"LLM-only elapsed: {total_time:.4f}s  ({total_calls} calls)")
+        log.info(f"Total tokens: {total_tokens}  (prompt={total_prompt}, completion={total_completion})")
+        log.info(f"Avg LLM time/task: {avg_time:.4f}s")
+
+    if ts.get('compiler_pass_rate') is not None:
+        # 旧 test_tracker summary 的名称兼容
+        pass
     log.separator()
 
 

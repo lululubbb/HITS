@@ -26,6 +26,12 @@ import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from bs4 import BeautifulSoup
+from utils.test_runner_focal_fix import (
+    resolve_all_target_classes,
+    resolve_target_class_for_test,
+    is_focal_method_match_fixed,
+    safe_params_to_descriptor_fixed,
+)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
@@ -175,6 +181,11 @@ class TestRunner:
         """Return simple class name of modified class (e.g. 'CSVParser')."""
         project_root = self.target_path
 
+        # 优先支持多个 modified class：如果有多个，取第一个作为默认
+        all_classes = resolve_all_target_classes(project_root)
+        if all_classes:
+            return all_classes[0]
+
         meta_file = os.path.join(project_root, 'modified_classes.src')
         if os.path.exists(meta_file):
             try:
@@ -210,7 +221,7 @@ class TestRunner:
 
     def _resolve_focal_method(self, tests_dir):
         try:
-            raw_data_dir = os.path.join(dataset_dir, "raw_data")
+            raw_data_dir = os.path.join(tests_dir, "raw_data")
             if raw_data_dir and os.path.isdir(raw_data_dir):
                 for fname in sorted(os.listdir(raw_data_dir)):
                     if fname.endswith('.json') and '%' in fname:
@@ -639,7 +650,7 @@ class TestRunner:
 
     def run_all_tests(self, tests_dir, compiled_test_dir, compiler_output,
                       test_output, report_dir, logs=None):
-        tests = os.path.join(tests_dir, "test_cases")
+        tests = os.path.join(tests_dir, "steps")
         self.instrument(compiled_test_dir, compiled_test_dir)
         start_time = datetime.now()
 
@@ -648,6 +659,7 @@ class TestRunner:
         syntax_errors = 0
         compile_failed_list = []
 
+        all_target_classes = resolve_all_target_classes(self.target_path)
         target_class = self._resolve_target_class(tests_dir)
         project_name = os.path.basename(self.target_path.rstrip('/'))
         global_csv_parent_dir = os.path.abspath(tests_dir)
@@ -806,6 +818,10 @@ class TestRunner:
                     }
 
                 # ── 3) Run test ────────────────────────────────────────
+                # Resolve target modified class for this test case (multi modified class support)
+                test_target_class = resolve_target_class_for_test(
+                    full_name, all_target_classes, fallback=target_class)
+
                 test_basename = os.path.splitext(test_case_file)[0]
                 per_test_exec = os.path.join(compiled_test_dir,
                                              f"jacoco_{test_basename}.exec")
@@ -899,8 +915,8 @@ class TestRunner:
                             for class_elem in root_p.findall('.//class'):
                                 cname = class_elem.attrib.get('name', '')
                                 simple = cname.split('/')[-1].split('$')[0]
-                                if (simple != target_class and
-                                        not cname.endswith('/' + target_class)):
+                                if (simple != test_target_class and
+                                        not cname.endswith('/' + test_target_class)):
                                     continue
 
                                 for c in class_elem.findall('counter'):
@@ -917,9 +933,9 @@ class TestRunner:
                                 if focal_for_this:
                                     matched_methods = [
                                         me for me in class_elem.findall('method')
-                                        if self._is_focal_method_match(
+                                        if is_focal_method_match_fixed(
                                             me.get('name', ''), focal_for_this,
-                                            target_class,
+                                            test_target_class,
                                             focal_descriptor=focal_desc_for_this,
                                             method_desc=me.get('desc', ''))
                                     ]

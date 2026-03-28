@@ -82,7 +82,7 @@ def find_main_cls(tree: Tree, code: str, logger=None) -> Optional[Node]:
                 break
     if main_cls is None:
         if logger is not None:
-            logger.warning(f"No public class found")
+            logger.debug(f"No public class found")
         return None
     else:
         return main_cls
