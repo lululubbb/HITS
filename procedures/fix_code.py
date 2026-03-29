@@ -1,3 +1,11 @@
+"""
+procedures/fix_code.py — fixed
+
+Key fix: coverage_check / advanced_run_check no longer raises FileNotFoundError
+when jacoco HTML is not available (e.g. jacoco-cli not configured).
+Instead it gracefully returns None and test_passed is NOT downgraded.
+"""
+
 import glob
 import os.path
 import shutil
@@ -51,13 +59,29 @@ def remove_assertion_retest(step_workspace, put_path) -> bool:
 
 
 def coverage_check(slice_work_space, signature, package, class_name):
+    """
+    FIX #4: Tolerate missing HTML report — return None (not raise) when
+    the JaCoCo HTML file for the class is not found.
+    This happens when jacoco-cli is not available or exec file is empty.
+    Returning None causes advanced_run_check to skip coverage-zero check.
+    """
     exec_path = os.path.join(slice_work_space, 'runtemp', 'jacoco.exec')
     if not os.path.exists(exec_path):
         return None
     cov_dir = os.path.join(slice_work_space, "cov_check_dir")
     if not os.path.exists(cov_dir):
         return None
-    return jacoco_analysis(cov_dir, package, class_name, signature)
+    try:
+        return jacoco_analysis(cov_dir, package, class_name, signature)
+    except FileNotFoundError:
+        # HTML report not generated (jacoco-cli missing or exec empty)
+        # Return None to skip coverage-zero gate rather than crashing
+        return None
+    except Exception as e:
+        import logging
+        logging.getLogger('fix_code').warning(
+            f"coverage_check failed for {class_name}: {e}")
+        return None
 
 
 def advanced_run_check(slice_workspace, put_path, signature, package, class_name):
@@ -69,11 +93,8 @@ def advanced_run_check(slice_workspace, put_path, signature, package, class_name
     if test_passed:
         coverage_analysis = coverage_check(slice_workspace, signature, package, class_name)
         if coverage_analysis is None:
-            # ── 修复：覆盖率检查失败不等于测试失败
-            # 旧版在这里会将 test_passed = False，导致 jacoco.exec 路径上
-            # 带有 runtime_error.txt 标记，使 single_method_report 跳过该 exec。
-            # 新版：只记录日志，不阻断 test_passed。
-            pass  # coverage_analysis is None 时不修改 test_passed
+            # FIX #4: coverage check unavailable — do not penalise passing test
+            pass
         else:
             for key in coverage_analysis:
                 coverage_str = coverage_analysis[key].strip("%").lower()

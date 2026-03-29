@@ -460,6 +460,18 @@ def evaluate_project(project_name: str, put_root: str,
 
     eval_time = round(time.time() - eval_start, 2)
 
+    # 如果 tests_dir 存在 test_cases/，运行全局测试评估生成文件夹
+    if tests_dir and os.path.isdir(os.path.join(tests_dir, 'test_cases')):
+        logger.info(f"[Eval] Running global test evaluation for folders...")
+        try:
+            from utils.test_runner import TestRunner
+            runner = TestRunner(tests_dir, os.path.join(put_root, project_name),
+                                output_path=tests_dir, tool='jacoco', debug=False)
+            runner.start_all_test()
+            logger.info(f"[Eval] Global test evaluation completed")
+        except Exception as e:
+            logger.warning(f"[Eval] Global test evaluation failed: {e}")
+
     result = {
         "project":                  project_name,
         "timestamp":                datetime.now().isoformat(),

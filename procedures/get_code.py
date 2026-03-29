@@ -1,10 +1,17 @@
 """
-procedures/get_code.py  — 修复版
+procedures/get_code.py  — fixed v2
 
-变更：
-  1. generate_code() 的 capacity 默认值改为从 config.TEST_CASES_PER_SLICE 读取
-  2. work() 中 wo_slice 模式的 fix_num 默认值改为从 config.WO_SLICE_TEST_COUNT 读取
-  3. 其余逻辑与原版一致
+FIX #6: generate_code() and work() now accept a method_idx parameter.
+When provided, every generated test file is named:
+    <method_idx>__<ClassName>_<step_id>_<seq>Test.java
+instead of:
+    <ClassName>_<step_id>_<seq>Test.java
+
+This guarantees that test files from different focal methods never collide
+when collected into a shared test_cases/ directory.
+
+Example: method_0__ExtendedBufferedReader_0_0Test.java
+         method_1__ExtendedBufferedReader_0_0Test.java
 """
 
 import json
@@ -25,7 +32,7 @@ from generator.open_generator import OpenGenerator
 from procedures.basic_procedure import BasicProcedure
 from utils.code_editor import CodeEditor
 from utils.post_process import extract_code
-from utils.config import TEST_CASES_PER_SLICE, WO_SLICE_TEST_COUNT  # ← 新增
+from utils.config import TEST_CASES_PER_SLICE, WO_SLICE_TEST_COUNT
 
 
 class InitialCodeGenerator(BasicProcedure):
@@ -34,7 +41,6 @@ class InitialCodeGenerator(BasicProcedure):
             prompt_root, system_template_file_name,
             init_code_generate_template_file_name, "init_code_generator")
         self.code_editor = CodeEditor()
-        # 确保logger可以输出INFO级别
         self.logger.setLevel(logging.INFO)
         if not self.logger.handlers:
             handler = logging.StreamHandler()
@@ -42,16 +48,17 @@ class InitialCodeGenerator(BasicProcedure):
             self.logger.addHandler(handler)
 
     def generate_code(self, direction_3, step_id, chatter, log_dir,
-                      init_temp=0.0, capacity=None):
+                      init_temp=0.0, capacity=None, method_idx: str = ''):
         """
-        capacity: 本次生成保留的最大测试用例数。
-          None  → 使用 config.TEST_CASES_PER_SLICE（-1 表示不限）
-          >= 0  → 直接使用该值（允许调用者覆盖）
+        Generate test code for one slice/step.
+
+        FIX #6: method_idx is prepended to all output file names so that
+        tests from different focal methods never share a filename.
+
+        capacity: max test cases to keep (-1 or None = use config).
         """
-        # 解析 capacity
         if capacity is None:
-            capacity = TEST_CASES_PER_SLICE  # 来自 config.ini
-        # -1 或 None 均表示不限制
+            capacity = TEST_CASES_PER_SLICE
         _limit = capacity if (capacity is not None and capacity >= 0) else None
 
         logger_name = log_dir.replace('.', '/') + f".{step_id}"
@@ -62,41 +69,35 @@ class InitialCodeGenerator(BasicProcedure):
         logger.setLevel(logging.INFO)
 
         response = ""
-        tests_by_condition = list([])
+        tests_by_condition: List[str] = []
 
         for generate_trial in range(5):
             temperature = init_temp if generate_trial == 0 else 0.5
-            logger.info(f"[GEN] Trial {generate_trial+1}/5: Generating code with temperature={temperature}")
-            logger.info(f"▶ [{generate_trial+1}/5] 生成 Test #{generate_trial+1}")
-            response_0 = chatter.generate(self.generate_template.render(direction_3),
-                                          self.system_template.render(),
-                                          temperature=temperature)
+            logger.info(f"[GEN] Trial {generate_trial+1}/5  temp={temperature}")
+            response_0 = chatter.generate(
+                self.generate_template.render(direction_3),
+                self.system_template.render(),
+                temperature=temperature)
             if response_0[0] != 200:
-                logger.error(f"Error when communicate with GPT. Error code: {response_0[0]}")
+                logger.error(f"LLM error: {response_0[0]}")
                 continue
-            else:
-                response = response_0[1][0]
+            response = response_0[1][0]
             has_code, extracted_code, has_syntactic_error = extract_code(response)
             if has_code and not has_syntactic_error:
                 tests_by_condition = self.code_editor.split_test_cases(
                     extracted_code, direction_3['simple_class_name'])
                 if tests_by_condition is None:
                     tests_by_condition = []
-                    logger.warning(f"No valid public class for {log_dir} step {step_id} trial {generate_trial}")
+                    logger.warning(f"No valid public class for step {step_id} trial {generate_trial}")
                 else:
-                    logger.info(f"[GEN] SUCCESS: Generated {len(tests_by_condition)} test cases at trial {generate_trial+1}")
+                    logger.info(f"[GEN] SUCCESS: {len(tests_by_condition)} test cases")
                     break
             else:
-                if not has_code:
-                    logger.debug(f"No code for {log_dir} step {step_id} trial {generate_trial}")
-                if has_syntactic_error:
-                    logger.debug(f"Syntactic error for {log_dir} step {step_id} trial {generate_trial}")
                 tests_by_condition = []
 
         if isinstance(step_id, int):
             step_id = str(step_id)
 
-        # 应用上限
         if _limit is not None and _limit >= 0:
             tests_by_condition = tests_by_condition[:_limit]
 
@@ -104,42 +105,50 @@ class InitialCodeGenerator(BasicProcedure):
         has_output = False
         for condition_idx, test_by_condition in enumerate(tests_by_condition):
             has_output = True
-            cls_name = "_".join([direction_3['simple_class_name'], step_id,
-                                  str(condition_idx), "Test"])
+            # FIX #6: include method_idx prefix in class name
+            if method_idx:
+                if direction_3['simple_class_name'].startswith(method_idx + '__'):
+                    cls_name = f"{direction_3['simple_class_name']}_{step_id}_{condition_idx}_Test"
+                else:
+                    cls_name = f"{method_idx}__{direction_3['simple_class_name']}_{step_id}_{condition_idx}_Test"
+            else:
+                cls_name = f"{direction_3['simple_class_name']}_{step_id}_{condition_idx}_Test"
+
             output_content = self.code_editor.change_main_cls_name(test_by_condition, cls_name)
             if output_content is None:
                 output_content = test_by_condition
-            with open(os.path.join(log_dir, f"{cls_name}.java"), "w", encoding='utf-8') as file:
-                file.write(output_content)
-            with open(os.path.join(log_dir, f"{cls_name}.prompt.txt"), "w", encoding='utf-8') as file:
-                file.write(self.generate_template.render(direction_3))
+
+            with open(os.path.join(log_dir, f"{cls_name}.java"), "w", encoding='utf-8') as f:
+                f.write(output_content)
+            with open(os.path.join(log_dir, f"{cls_name}.prompt.txt"), "w", encoding='utf-8') as f:
+                f.write(self.generate_template.render(direction_3))
             if 'step_id' in direction_3:
                 step_id_val = str(direction_3['step_id'])
                 if direction_3.get('steps') and step_id_val.isdigit():
                     idx = int(step_id_val)
                     if 0 <= idx < len(direction_3['steps']):
-                        with open(os.path.join(log_dir, f"{cls_name}.condition.txt"), 'w', encoding='utf-8') as file:
-                            file.write(direction_3['steps'][idx].get('desp', ''))
+                        with open(os.path.join(log_dir, f"{cls_name}.condition.txt"),
+                                  'w', encoding='utf-8') as f:
+                            f.write(direction_3['steps'][idx].get('desp', ''))
             unit_tests.append(output_content)
 
         if has_output:
-            with open(os.path.join(
-                    log_dir,
-                    f"{direction_3['simple_class_name']}_{step_id}.response.txt"), "w",
-                    encoding='utf-8') as file:
-                file.write(response)
-            self.logger.info(f"Step {step_id} in {log_dir}: success")
+            resp_name = (f"{method_idx}__{direction_3['simple_class_name']}_{step_id}.response.txt"
+                         if method_idx and not direction_3['simple_class_name'].startswith(method_idx + '__')
+                         else f"{direction_3['simple_class_name']}_{step_id}.response.txt")
+            with open(os.path.join(log_dir, resp_name), "w", encoding='utf-8') as f:
+                f.write(response)
+            self.logger.info(f"Step {step_id} in {log_dir}: success ({len(unit_tests)} tests)")
         else:
             logger.error(f"Step {step_id}: failed to generate any code")
             self.logger.error(f"Step {step_id}: failed to generate any code")
         return unit_tests
 
     def work(self, collection: Collection, chatter: OpenGenerator, log_dir: str,
-             fix_num=-1, fixing=False) -> Optional[List[str]]:
+             fix_num=-1, fixing=False, method_idx: str = '') -> Optional[List[str]]:
         """
-        fix_num: wo_slice 模式下目标测试数量。
-          -1  → 使用 config.WO_SLICE_TEST_COUNT
-          >0  → 使用传入值
+        FIX #6: method_idx is threaded through to generate_code so that every
+        output file gets the method-specific prefix.
         """
         direction_3: Dict = collection.find_one({"table_name": "direction_3"})
         direction_1: Dict = collection.find_one({"table_name": "direction_1"})
@@ -169,46 +178,44 @@ class InitialCodeGenerator(BasicProcedure):
             os.makedirs(os.path.join(log_dir, "steps"), exist_ok=True)
 
             if fix_num < 0:
-                # 正常 slice 模式：每个 slice 一次 generate_code
                 if not direction_3.get('steps'):
-                    # 可能是 wo_slice 不做切片（附加信息缺失）的情况
-                    self.logger.warning("No slices available in add_info; falling back to wo_slice style generation")
+                    # Fallback wo_slice style
                     _target = WO_SLICE_TEST_COUNT
                     _round = 0
-                    self.logger.info(f"▶ Phase 1: 生成测试用例 (wo_slice)")
+                    self.logger.info(f"▶ Phase 1: generating tests (wo_slice fallback)")
                     while len(unit_tests) < _target:
-                        self.logger.info(f"▶ [{_round+1}/{_target}] 生成 Test #{_round+1}")
-                        self.logger.info(f"Generating init unit test round {_round + 1} (fallback wo_slice)")
+                        self.logger.info(f"▶ [{_round+1}/{_target}] generating test #{_round+1}")
                         remaining = _target - len(unit_tests)
                         direction_3['step_id'] = _round
                         unit_tests += self.generate_code(
                             direction_3, str(_round), chatter,
                             os.path.join(log_dir, "steps"),
-                            init_temp=0.5, capacity=remaining)
+                            init_temp=0.5, capacity=remaining,
+                            method_idx=method_idx)  # FIX #6
                         _round += 1
                     unit_tests = unit_tests[:_target]
                 else:
                     for i in range(len(direction_3['steps'])):
-                        self.logger.info(f"▶ Phase 1: 生成测试用例")
-                        self.logger.info(f"▶ [{i+1}/{len(direction_3['steps'])}] 生成 Test #{i+1}")
-                        self.logger.info(f"Generating init unit test for slice {i + 1}")
+                        self.logger.info(f"▶ [{i+1}/{len(direction_3['steps'])}] "
+                                         f"generating test for slice {i+1}")
                         direction_3['step_id'] = i
-                        unit_tests += self.generate_code(direction_3, str(i), chatter,
-                                                         os.path.join(log_dir, "steps"))
+                        unit_tests += self.generate_code(
+                            direction_3, str(i), chatter,
+                            os.path.join(log_dir, "steps"),
+                            method_idx=method_idx)  # FIX #6
             else:
-                # wo_slice 模式：fix_num <= 0 时回落到 config 值
                 _target = fix_num if fix_num > 0 else WO_SLICE_TEST_COUNT
                 _round = 0
-                self.logger.info(f"▶ Phase 1: 生成测试用例 (wo_slice)")
+                self.logger.info(f"▶ Phase 1: generating tests (wo_slice, target={_target})")
                 while len(unit_tests) < _target:
-                    self.logger.info(f"▶ [{_round+1}/{_target}] 生成 Test #{_round+1}")
-                    self.logger.info(f"Generating init unit test round {_round + 1}")
+                    self.logger.info(f"▶ [{_round+1}/{_target}] generating test #{_round+1}")
                     remaining = _target - len(unit_tests)
                     direction_3['step_id'] = _round
                     unit_tests += self.generate_code(
                         direction_3, str(_round), chatter,
                         os.path.join(log_dir, "steps"),
-                        init_temp=0.5, capacity=remaining)
+                        init_temp=0.5, capacity=remaining,
+                        method_idx=method_idx)  # FIX #6
                     _round += 1
                 unit_tests = unit_tests[:_target]
 
@@ -216,7 +223,6 @@ class InitialCodeGenerator(BasicProcedure):
             direction_3['has_missing_lines'] = True
             slice_info_path = os.path.join(log_dir, "slice_fixing", "slice_result.jsonl")
             assert os.path.exists(slice_info_path)
-            slices_to_fix = []
             with open(slice_info_path, 'r') as file:
                 slices_to_fix = [json.loads(line) for line in file.read().strip().split("\n")]
             if not info or 'method_graphs' not in info:
@@ -227,7 +233,7 @@ class InitialCodeGenerator(BasicProcedure):
             def _build_line(_line_map, _line_no):
                 return f"{_line_no}:{_line_map[str(_line_no)]}" if str(_line_no) in _line_map else ""
 
-            self.logger.info(f"▶ Phase 1: 生成修复测试用例")
+            self.logger.info(f"▶ Phase 1: generating fixing tests")
             for idx, slice_to_fix in enumerate(slices_to_fix):
                 missing_lines     = [_build_line(method_lines, i) for i in slice_to_fix['missing_lines']]
                 condition         = _build_line(method_lines, slice_to_fix['slicing_criteria'][0])
@@ -237,16 +243,17 @@ class InitialCodeGenerator(BasicProcedure):
                     _build_line(method_lines, i[0]) +
                     f" # The predicate should be {'True' if i[1] != 0 else 'False'}"
                     for i in slice_to_fix['ctl_deps']]
-                numbered_fm       = [_build_line(method_lines, i) for i in method_lines]
+                numbered_fm = [_build_line(method_lines, i) for i in method_lines]
                 direction_3['missing_lines']    = "\n".join(missing_lines)
                 direction_3['condition']         = condition
                 direction_3['data_dependencies'] = '\n'.join(data_dependencies)
                 direction_3['data_slicers']      = '\n'.join(data_slicers)
                 direction_3['ctl_dep']           = '\n'.join(ctl_dependencies)
                 direction_3['numbered_fm']       = '\n'.join(numbered_fm)
-                self.logger.info(f"▶ [{idx+1}/{len(slices_to_fix)}] 生成 Test #{idx+1}")
-                self.logger.info(f"Generating fixing unit test for slice {idx}")
-                unit_tests += self.generate_code(direction_3, f"Fix{idx}", chatter,
-                                                  os.path.join(log_dir, "slice_fixing"))
+                self.logger.info(f"▶ [{idx+1}/{len(slices_to_fix)}] generating fix test #{idx+1}")
+                unit_tests += self.generate_code(
+                    direction_3, f"Fix{idx}", chatter,
+                    os.path.join(log_dir, "slice_fixing"),
+                    method_idx=method_idx)  # FIX #6
 
         return unit_tests
