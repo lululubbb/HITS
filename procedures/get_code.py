@@ -1,17 +1,14 @@
 """
-procedures/get_code.py  — fixed v2
+procedures/get_code.py  — fixed v3
 
-FIX #6: generate_code() and work() now accept a method_idx parameter.
-When provided, every generated test file is named:
-    <method_idx>__<ClassName>_<step_id>_<seq>Test.java
-instead of:
+FIX #6 (revised): generate_code() does NOT embed method_idx into the file name.
+Test files are named simply:
     <ClassName>_<step_id>_<seq>Test.java
 
-This guarantees that test files from different focal methods never collide
-when collected into a shared test_cases/ directory.
-
-Example: method_0__ExtendedBufferedReader_0_0Test.java
-         method_1__ExtendedBufferedReader_0_0Test.java
+The method_idx prefix is added ONLY by _collect_tests_dir() in run_pipeline.py
+when copying files into the shared test_cases/ directory.  That way:
+  - Files inside each method's own steps/ dir have clean names
+  - Files in the merged test_cases/ dir get a unique method_idx__ prefix
 """
 
 import json
@@ -52,8 +49,9 @@ class InitialCodeGenerator(BasicProcedure):
         """
         Generate test code for one slice/step.
 
-        FIX #6: method_idx is prepended to all output file names so that
-        tests from different focal methods never share a filename.
+        NOTE: method_idx is accepted for backward-compat but is NOT embedded
+        in the file name here.  The prefix is added by _collect_tests_dir()
+        in run_pipeline.py when copying into the shared test_cases/ dir.
 
         capacity: max test cases to keep (-1 or None = use config).
         """
@@ -105,14 +103,9 @@ class InitialCodeGenerator(BasicProcedure):
         has_output = False
         for condition_idx, test_by_condition in enumerate(tests_by_condition):
             has_output = True
-            # FIX #6: include method_idx prefix in class name
-            if method_idx:
-                if direction_3['simple_class_name'].startswith(method_idx + '__'):
-                    cls_name = f"{direction_3['simple_class_name']}_{step_id}_{condition_idx}_Test"
-                else:
-                    cls_name = f"{method_idx}__{direction_3['simple_class_name']}_{step_id}_{condition_idx}_Test"
-            else:
-                cls_name = f"{direction_3['simple_class_name']}_{step_id}_{condition_idx}_Test"
+            # Clean class name — no method_idx prefix inside steps/
+            simple_cls = direction_3['simple_class_name']
+            cls_name = f"{simple_cls}_{step_id}_{condition_idx}_Test"
 
             output_content = self.code_editor.change_main_cls_name(test_by_condition, cls_name)
             if output_content is None:
@@ -133,9 +126,7 @@ class InitialCodeGenerator(BasicProcedure):
             unit_tests.append(output_content)
 
         if has_output:
-            resp_name = (f"{method_idx}__{direction_3['simple_class_name']}_{step_id}.response.txt"
-                         if method_idx and not direction_3['simple_class_name'].startswith(method_idx + '__')
-                         else f"{direction_3['simple_class_name']}_{step_id}.response.txt")
+            resp_name = f"{direction_3['simple_class_name']}_{step_id}.response.txt"
             with open(os.path.join(log_dir, resp_name), "w", encoding='utf-8') as f:
                 f.write(response)
             self.logger.info(f"Step {step_id} in {log_dir}: success ({len(unit_tests)} tests)")
@@ -147,8 +138,7 @@ class InitialCodeGenerator(BasicProcedure):
     def work(self, collection: Collection, chatter: OpenGenerator, log_dir: str,
              fix_num=-1, fixing=False, method_idx: str = '') -> Optional[List[str]]:
         """
-        FIX #6: method_idx is threaded through to generate_code so that every
-        output file gets the method-specific prefix.
+        method_idx is accepted for API compatibility but not used for naming here.
         """
         direction_3: Dict = collection.find_one({"table_name": "direction_3"})
         direction_1: Dict = collection.find_one({"table_name": "direction_1"})
@@ -190,8 +180,7 @@ class InitialCodeGenerator(BasicProcedure):
                         unit_tests += self.generate_code(
                             direction_3, str(_round), chatter,
                             os.path.join(log_dir, "steps"),
-                            init_temp=0.5, capacity=remaining,
-                            method_idx=method_idx)  # FIX #6
+                            init_temp=0.5, capacity=remaining)
                         _round += 1
                     unit_tests = unit_tests[:_target]
                 else:
@@ -201,8 +190,7 @@ class InitialCodeGenerator(BasicProcedure):
                         direction_3['step_id'] = i
                         unit_tests += self.generate_code(
                             direction_3, str(i), chatter,
-                            os.path.join(log_dir, "steps"),
-                            method_idx=method_idx)  # FIX #6
+                            os.path.join(log_dir, "steps"))
             else:
                 _target = fix_num if fix_num > 0 else WO_SLICE_TEST_COUNT
                 _round = 0
@@ -214,8 +202,7 @@ class InitialCodeGenerator(BasicProcedure):
                     unit_tests += self.generate_code(
                         direction_3, str(_round), chatter,
                         os.path.join(log_dir, "steps"),
-                        init_temp=0.5, capacity=remaining,
-                        method_idx=method_idx)  # FIX #6
+                        init_temp=0.5, capacity=remaining)
                     _round += 1
                 unit_tests = unit_tests[:_target]
 
@@ -253,7 +240,6 @@ class InitialCodeGenerator(BasicProcedure):
                 self.logger.info(f"▶ [{idx+1}/{len(slices_to_fix)}] generating fix test #{idx+1}")
                 unit_tests += self.generate_code(
                     direction_3, f"Fix{idx}", chatter,
-                    os.path.join(log_dir, "slice_fixing"),
-                    method_idx=method_idx)  # FIX #6
+                    os.path.join(log_dir, "slice_fixing"))
 
         return unit_tests

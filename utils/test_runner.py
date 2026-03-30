@@ -264,19 +264,57 @@ class TestRunner:
         return ''
 
     def _parse_test_name(self, tc_name: str):
-        try:
-            m = re.match(r'^(?P<class>.*)_(?P<mid>[^_]+)_(?P<seq>\d+)Test$', tc_name)
-            if m:
-                return m.group('class'), m.group('mid'), m.group('seq')
-        except Exception:
-            pass
+        # 统一处理各类命名：
+        # - package.ClassName_MID_SEQ_Test
+        # - method_i__ClassName_MID_SEQ_Test
+        # - 以及没有 _Test 的变体
+        pkg = ''
+        base = tc_name
+        if '.' in tc_name:
+            pkg, base = tc_name.rsplit('.', 1)
+
+        method_idx = ''
+        m_prefix = re.match(r'^method_(\d+)__(.+)$', base)
+        if m_prefix:
+            method_idx = m_prefix.group(1)
+            base = m_prefix.group(2)
+
+        if base.endswith('_Test'):
+            base = base[:-5]
+        elif base.endswith('Test'):
+            base = base[:-4]
+
+        m = re.match(r'^(?P<class>.+?)_(?P<local_mid>\d+)_(?P<seq>\d+)$', base)
+        if m:
+            cls = m.group('class')
+            if pkg:
+                cls = f"{pkg}.{cls}"
+            mid = method_idx or m.group('local_mid')
+            return cls, mid, m.group('seq')
+
+        m2 = re.match(r'^(?P<class>.+?)_(?P<local_mid>\d+)$', base)
+        if m2:
+            cls = m2.group('class')
+            if pkg:
+                cls = f"{pkg}.{cls}"
+            mid = method_idx or m2.group('local_mid')
+            return cls, mid, ''
+
+        # 兼容无mid命名
+        if method_idx and pkg:
+            return tc_name, method_idx, ''
+
         return tc_name, '', ''
 
     def _group_from_test_class(self, tc_name: str):
         cls, mid, seq = self._parse_test_name(tc_name)
         if mid:
             return f"{cls}_{mid}"
+
+        # 旧逻辑回退，兼容非标准命名
         parts = tc_name.rsplit('_', 2)
+        if len(parts) >= 3 and parts[-2].isdigit():
+            return parts[0] + '_' + parts[-2]
         if len(parts) >= 3:
             return parts[0] + '_' + parts[1]
         return tc_name
@@ -289,11 +327,20 @@ class TestRunner:
     def _focal_info_from_group(self, grp: str, mid_to_name: dict = None,
                                 global_focal: str = '',
                                 mid_to_focal_map: dict = None) -> tuple:
-        if '_' not in grp:
+        if not grp:
             return global_focal or '', None
-        mid = grp.split('_')[-1]
-        if not mid.isdigit():
-            return mid, None
+
+        # Remove method prefix 和 package prefix后的class名
+        normalized = re.sub(r'method_\d+__', '', grp)
+        normalized = normalized.split('.')[-1]
+
+        # 形如 ClassName_mid_seq 或 ClassName_mid
+        m = re.match(r'^(?P<class>.+?)_(?P<mid>\d+)(?:_(?P<seq>\d+))?$', normalized)
+        if not m:
+            return global_focal or '', None
+
+        mid = m.group('mid')
+
         if mid_to_focal_map:
             info = mid_to_focal_map.get(mid)
             if info:
@@ -302,6 +349,7 @@ class TestRunner:
             name = mid_to_name.get(mid)
             if name:
                 return name, None
+
         return global_focal or '', None
 
     def _merge_jacoco_execs(self, exec_paths: list, out_exec: str) -> bool:
@@ -446,23 +494,106 @@ class TestRunner:
     def _build_mid_to_focal_map(self, tests_dir: str) -> dict:
         """
         Build mapping from method-id → {name, descriptor} by reading
-        raw_data JSON files. Searches tests_dir-local raw_data first,
-        then global dataset_dir as fallback.
+        raw_data JSON files. 
+        
+        关键映射：
+        - dataset 文件序号从 1 开始（1%...%...raw.json）
+        - method_idx（mid）从 0 开始
+        - 所以 dataset_seq = mid + 1
+        
+        优先搜索当前项目的 dataset，然后回退到全局 dataset_dir。
         """
         import json as _json
         result: dict = {}
 
-        # Search in order: local then global
+        # 从 tests_dir 推断项目名和项目根目录
+        # tests_dir 形如：/.../Csv_4_f/tests%<run_id>
+        project_root = None
+        tests_parent = os.path.dirname(tests_dir)  # /.../Csv_4_f
+        if os.path.isdir(tests_parent):
+            project_root = tests_parent
+
         raw_data_dirs = []
+        
+        # 优先搜索项目根目录下的 dataset
+        if project_root:
+            project_dataset = os.path.join(project_root, "dataset", "raw_data")
+            if os.path.isdir(project_dataset):
+                raw_data_dirs.append(project_dataset)
+                print(f"[INFO] Using project dataset: {project_dataset}")
+        
+        # 其次搜索 tests_dir 下的 dataset
         for d in [
             os.path.join(tests_dir, "dataset", "raw_data"),
             os.path.join(tests_dir, "raw_data"),
         ]:
-            if os.path.isdir(d):
+            if os.path.isdir(d) and d not in raw_data_dirs:
                 raw_data_dirs.append(d)
+        
+        # 最后回退到全局 dataset_dir
         global_raw = os.path.join(_DATASET_DIR, "raw_data") if _DATASET_DIR else ""
         if global_raw and os.path.isdir(global_raw) and global_raw not in raw_data_dirs:
             raw_data_dirs.append(global_raw)
+
+        def _normalize_type(t: str) -> str:
+            t = t.strip()
+            if not t or t == 'void':
+                return ''
+            # 去掉泛型
+            t = re.sub(r'<.*?>', '', t)
+            # 去掉 final 等修饰符
+            t = re.sub(r'\b(final|public|private|protected|static|synchronized|volatile|transient|abstract)\b', '', t)
+            t = t.strip()
+            # varargs -> array
+            array_level = 0
+            if t.endswith('...'):
+                array_level += 1
+                t = t[:-3].strip()
+            while t.endswith('[]'):
+                array_level += 1
+                t = t[:-2].strip()
+            # 可能携带参数名
+            parts = t.split()
+            if len(parts) > 1:
+                t = parts[0]
+            primitive_map = {
+                'byte': 'B', 'char': 'C', 'double': 'D', 'float': 'F',
+                'int': 'I', 'long': 'J', 'short': 'S', 'boolean': 'Z', 'void': 'V'
+            }
+            if t in primitive_map:
+                desc = primitive_map[t]
+            else:
+                if '.' in t:
+                    fq = t
+                else:
+                    if t == 'String':
+                        fq = 'java.lang.String'
+                    elif t == 'Object':
+                        fq = 'java.lang.Object'
+                    else:
+                        fq = t
+                fq = fq.strip().replace('.', '/')
+                desc = f'L{fq};'
+            desc = '[' * array_level + desc
+            return desc
+
+        def _signature_to_descriptor(sig: str):
+            if not sig or '(' not in sig or ')' not in sig:
+                return None
+            try:
+                params = sig[sig.index('(')+1 : sig.rfind(')')].strip()
+            except Exception:
+                return None
+            if params == '':
+                return '()'
+            parts = [p.strip() for p in params.split(',') if p.strip()]
+            desc_parts = []
+            for p in parts:
+                desc = _normalize_type(p)
+                if not desc:
+                    return None
+                desc_parts.append(desc)
+            return '(' + ''.join(desc_parts) + ')'
 
         for raw_data_dir in raw_data_dirs:
             try:
@@ -472,12 +603,17 @@ class TestRunner:
                     parts = fname.split("%")
                     if len(parts) < 4:
                         continue
-                    mid = parts[0].strip()
+
+                    dataset_seq = parts[0].strip()
                     name_from_fname = parts[3].strip()
-                    if not mid.isdigit() or not name_from_fname or name_from_fname.isdigit():
+                    if not dataset_seq.isdigit() or not name_from_fname or name_from_fname.isdigit():
                         continue
+
+                    # 映射：dataset_seq = mid + 1，所以 mid = dataset_seq - 1
+                    mid = str(int(dataset_seq) - 1)
                     if mid in result:
                         continue
+
                     entry = {'name': name_from_fname, 'descriptor': None, 'params': None}
                     try:
                         with open(os.path.join(raw_data_dir, fname), 'r',
@@ -485,6 +621,8 @@ class TestRunner:
                             data = _json.loads(_jf.read(65536))
                         entry['name'] = (data.get('method_name') or
                                          data.get('focal_method') or name_from_fname)
+
+                        # 主要来源：method_descriptor 或 focal_method_descriptor
                         jvm_desc = (data.get('method_descriptor') or
                                     data.get('focal_method_descriptor') or
                                     data.get('descriptor'))
@@ -492,28 +630,32 @@ class TestRunner:
                             paren_close = jvm_desc.find(')')
                             entry['descriptor'] = (jvm_desc[:paren_close + 1]
                                                    if paren_close >= 0 else jvm_desc)
-                            result[mid] = entry
-                            continue
-                        for sig_key in ('focal_method_signature', 'method_signature',
-                                        'signature', 'focal_method'):
-                            sig_raw = data.get(sig_key)
-                            if not sig_raw or '(' not in sig_raw:
-                                continue
-                            po = sig_raw.index('('); pc = sig_raw.rfind(')')
-                            if pc <= po:
-                                continue
-                            rps = sig_raw[po + 1:pc].strip()
-                            if not rps:
-                                entry['descriptor'] = '()'; break
-                            pts = [s.strip().split()[0] for s in rps.split(',') if s.strip()]
-                            desc = self._safe_params_to_descriptor(pts)
-                            if desc is not None:
-                                entry['descriptor'] = desc; break
+
+                        # Fallback signature解析
+                        if not entry['descriptor']:
+                            for sig_key in ('parameters', 'signature', 'focal_method_signature',
+                                            'method_signature', 'focal_method'):
+                                sig_raw = data.get(sig_key)
+                                if not sig_raw or '(' not in sig_raw:
+                                    continue
+                                desc = _signature_to_descriptor(sig_raw)
+                                if desc:
+                                    entry['descriptor'] = desc
+                                    break
+
+                        # 设计 params 列用于调试/追踪，存参数字符串化
+                        params_raw = data.get('parameters') or ''
+                        if params_raw and '(' in params_raw:
+                            pstr = params_raw[params_raw.index('(')+1:params_raw.rfind(')')].strip()
+                            entry['params'] = [x.strip() for x in pstr.split(',') if x.strip()]
+
                     except Exception:
                         pass
                     result[mid] = entry
             except Exception:
                 pass
+        
+        print(f"[INFO] Built mid_to_focal_map with {len(result)} entries: {result}")
         return result
 
     # ── Coverage extraction helpers ────────────────────────────────────────────
@@ -625,7 +767,7 @@ class TestRunner:
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     cwd=self.target_path)
             if result.returncode == 0:
-                print(f"[INFO] jacoco-cli report generated: {report_dir}")
+                # print(f"[INFO] jacoco-cli report generated: {report_dir}")
                 return True
             else:
                 stderr = result.stderr.decode(errors='ignore')
@@ -659,7 +801,7 @@ class TestRunner:
             dest_xml = os.path.join(report_dir, "jacoco.xml")
             if os.path.exists(global_xml):
                 shutil.copy2(global_xml, dest_xml)
-                print(f"[INFO] mvn jacoco:report done → {dest_xml}")
+                # print(f"[INFO] mvn jacoco:report done → {dest_xml}")
                 return True
             else:
                 print(f"[WARN] mvn jacoco:report: jacoco.xml not generated")
