@@ -135,6 +135,38 @@ def step_0(project_name, put_root, wo_slice, run_id,
     log.step_done(0, f"{len(mut_names)} methods  run_id={run_id}")
     return meta
 
+def _collect_all_exec_files(meta: dict, compiled_dir: str = None) -> List[str]:
+    """
+    集中收集所有 jacoco exec 文件，供 step_6 和 step_9 共享使用。
+    这样两个步骤使用相同的 exec 集合，JaCoCo 报告的 total 才会一致。
+    """
+    methods_root = meta['methods_root']
+    exec_files: List[str] = []
+
+    # 1. phase A 产生的 per-test exec（在 compiled_dir 中）
+    if compiled_dir and os.path.isdir(compiled_dir):
+        for ef in glob.glob(os.path.join(compiled_dir, "jacoco_*.exec")):
+            if os.path.getsize(ef) > 0:
+                exec_files.append(ef)
+
+    # 2. 各 method 的 tests_ChatGPT/ 中的 exec
+    for m, method_idx in meta['method_name_to_idx'].items():
+        method_ctd = os.path.join(methods_root, method_idx, "tests_ChatGPT")
+        if not os.path.isdir(method_ctd):
+            continue
+        for ef in glob.glob(os.path.join(method_ctd, "jacoco_*.exec")):
+            if os.path.getsize(ef) > 0 and ef not in exec_files:
+                exec_files.append(ef)
+
+    # 3. 各 method 的 fixing/ 中的 runtemp/jacoco.exec
+    for m, method_idx in meta['method_name_to_idx'].items():
+        for ef in glob.glob(os.path.join(
+                methods_root, method_idx, "fixing",
+                "**", "runtemp", "jacoco.exec"), recursive=True):
+            if os.path.exists(ef) and os.path.getsize(ef) > 0 and ef not in exec_files:
+                exec_files.append(ef)
+
+    return exec_files
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Step 1
@@ -478,7 +510,7 @@ def step_6(project_name, meta, log: PipelineLogger, test_tracker=None):
                 test_tracker.add_coverage(m, line_rate, branch_rate or 0.0)
             except Exception:
                 pass
-
+    all_exec_files = _collect_all_exec_files(meta)        
     result_file = os.path.join(playground_dir, project_name,
                                f"result_{meta['run_id']}.json")
     with open(result_file, 'w') as f:
@@ -512,6 +544,7 @@ def step_6(project_name, meta, log: PipelineLogger, test_tracker=None):
         'compile_error':   compile_error_all,
         'test_run_error':  test_run_error_all,
         'methods_root':    methods_root,
+        'all_exec_files':  all_exec_files,
     }
 
 
@@ -566,7 +599,8 @@ def _collect_tests_dir(project_name: str, meta: dict, run_id: str) -> str:
 # Step 9: 全局 Test 评估（完全重写）
 # ══════════════════════════════════════════════════════════════════════════════
 def step_9_global_test_eval(project_name: str, meta: dict,
-                             tests_dir: str, log: PipelineLogger):
+                             tests_dir: str, log: PipelineLogger,
+                             pre_collected_exec_files: List[str] = None):
     """
     对 tests%<run_id>/test_cases/ 中的所有测试进行完整评估。
 
@@ -665,29 +699,15 @@ def step_9_global_test_eval(project_name: str, meta: dict,
     log.info(f"  [Phase A] compile={total_compile}  compile_err={compile_errors}  "
              f"exec_pass={exec_pass}  exec_fail={exec_fail}")
 
-    # ── Phase B: 收集 + 合并所有 exec 文件 ────────────────────────────────
-    exec_files: List[str] = []
-
-    # B1: Phase A 产生的 per-test exec（在 compiled_dir 中）
-    for ef in glob.glob(os.path.join(compiled_dir, "jacoco_*.exec")):
-        if os.path.getsize(ef) > 0:
-            exec_files.append(ef)
-
-    # B2: 各 method 的 tests_ChatGPT/ 中的 exec
-    for m, method_idx in meta['method_name_to_idx'].items():
-        method_ctd = os.path.join(methods_root, method_idx, "tests_ChatGPT")
-        if not os.path.isdir(method_ctd):
-            continue
-        for ef in glob.glob(os.path.join(method_ctd, "jacoco_*.exec")):
+    # Phase B：如果外部已经收集好 exec，直接合并；否则自己收集
+    if pre_collected_exec_files:
+        exec_files = pre_collected_exec_files
+        log.info(f"  [Phase B] Using pre-collected {len(exec_files)} exec files from step_6")
+    else:
+        exec_files = _collect_all_exec_files(meta, compiled_dir)
+        # B1: Phase A 产生的 per-test exec（在 compiled_dir 中）
+        for ef in glob.glob(os.path.join(compiled_dir, "jacoco_*.exec")):
             if os.path.getsize(ef) > 0 and ef not in exec_files:
-                exec_files.append(ef)
-
-    # B3: 各 method 的 fixing/ 中的 runtemp/jacoco.exec
-    for m, method_idx in meta['method_name_to_idx'].items():
-        for ef in glob.glob(os.path.join(
-                methods_root, method_idx, "fixing",
-                "**", "runtemp", "jacoco.exec"), recursive=True):
-            if os.path.exists(ef) and os.path.getsize(ef) > 0 and ef not in exec_files:
                 exec_files.append(ef)
 
     log.info(f"  [Phase B] Total exec files: {len(exec_files)}")
@@ -1118,7 +1138,10 @@ def main():
         step_8_similarity(project_name, tests_dir, log)
 
     if should_run(9):
-        step_9_global_test_eval(project_name, meta, tests_dir, log)
+        # 传入 step_6 收集的 exec 文件列表，保证两个步骤用相同的 exec 集合
+        pre_exec = exec_stats.get('all_exec_files') if exec_stats else None
+        step_9_global_test_eval(project_name, meta, tests_dir, log,
+                                pre_collected_exec_files=pre_exec)
 
     try:
         llm_tracker.save()
