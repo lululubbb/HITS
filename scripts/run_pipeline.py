@@ -553,7 +553,7 @@ def step_6(project_name, meta, log: PipelineLogger, test_tracker=None):
 # ══════════════════════════════════════════════════════════════════════════════
 def _collect_tests_dir(project_name: str, meta: dict, run_id: str) -> str:
     """
-    把各 method 的 steps/*.java 复制到 tests%<run_id>/test_cases/，
+    把各 method 的 fixing/ 最后一轮修复的 *.java 复制到 tests%<run_id>/test_cases/，
     文件名加 method_idx__ 前缀保证全局唯一。
     这是唯一加前缀的地方；get_code.py 不加前缀。
     """
@@ -565,10 +565,28 @@ def _collect_tests_dir(project_name: str, meta: dict, run_id: str) -> str:
     copied = 0
 
     for m, method_idx in meta['method_name_to_idx'].items():
-        steps_dir = os.path.join(methods_root, method_idx, "steps")
-        if not os.path.isdir(steps_dir):
+        fixing_root = os.path.join(methods_root, method_idx, "fixing")
+        if not os.path.isdir(fixing_root):
             continue
-        for jf in sorted(glob.glob(os.path.join(steps_dir, "*.java"))):
+        # 遍历 fixing/ 下的每个测试类
+        for test_class_dir in sorted(os.listdir(fixing_root)):
+            test_class_path = os.path.join(fixing_root, test_class_dir)
+            if not os.path.isdir(test_class_path):
+                continue
+            # 找到最后一轮修复的 trial（数字最大的）
+            trials = [d for d in os.listdir(test_class_path) if d.isdigit() and os.path.isdir(os.path.join(test_class_path, d))]
+            if not trials:
+                continue
+            last_trial = max(int(t) for t in trials)
+            last_trial_path = os.path.join(test_class_path, str(last_trial), "temp")
+            if not os.path.isdir(last_trial_path):
+                continue
+            # 查找 temp/ 下的 .java 文件
+            java_files = glob.glob(os.path.join(last_trial_path, "*.java"))
+            if not java_files:
+                continue
+            # 假设只有一个 .java 文件
+            jf = java_files[0]
             base = os.path.basename(jf)
             # 防止双重前缀（兼容旧版本残留）
             unique_name = base if base.startswith(method_idx + "__") \
